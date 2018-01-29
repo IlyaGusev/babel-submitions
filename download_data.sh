@@ -14,3 +14,12 @@ for p in en,de en,ru; do IFS=",";
   wget -nc -nv --show-progress -P ${OUTPUT_DIR} https://s3.amazonaws.com/arrival/embeddings/wiki.multi.$src.vec
   wget -nc -nv --show-progress -P ${OUTPUT_DIR} https://s3.amazonaws.com/arrival/embeddings/wiki.multi.$tgt.vec
 done
+
+TEXT_DIR="./data"
+
+mkdir -p ${TEXT_DIR}
+wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip data.zip
+mv data.zip ${TEXT_DIR}/data.zip
+unzip ${TEXT_DIR}/data.zip
+mv ${TEXT_DIR}/corpus1.txt ${TEXT_DIR}/corpus.en
+mv ${TEXT_DIR}/corpus2.txt ${TEXT_DIR}/corpus.ru

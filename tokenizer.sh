@@ -1,7 +1,9 @@
+#! /usr/bin/env bash
+
 set -x
 set -e
 
-OUTPUT_DIR="./models"
+OUTPUT_DIR="./data"
 mkdir -p $OUTPUT_DIR
 
 # Clone Moses
@@ -20,12 +22,6 @@ for l in ${langs[@]}; do
 done
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
-
-for f in ${OUTPUT_DIR}/*.en; do
-  fbase=${f%.*}
-  echo "Cleaning ${fbase}..."
-  ${OUTPUT_DIR}/mosesdecoder/scripts/training/clean-corpus-n.perl $fbase de en "${fbase}.clean" 1 80
-done
 
 # Clean all corpora
 for f in ${OUTPUT_DIR}/*.tok.${langs}; do
