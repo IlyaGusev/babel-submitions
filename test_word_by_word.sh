@@ -1,0 +1,1 @@
+perl multi-bleu.perl -lc bleu-ru.txt < bleu-ru-pred.txt

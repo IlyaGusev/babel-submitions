@@ -1,6 +1,9 @@
 from utils.vocabulary import Vocabulary
 from typing import List, Tuple
 from utils.tqdm import tqdm_open
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 
 
 class Batch:
