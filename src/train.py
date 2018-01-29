@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from gensim.models import KeyedVectors
 from torch.autograd import Variable
 from torch import optim
 
@@ -39,7 +40,7 @@ class Trainer:
         self.src_criterion = nn.NLLLoss(weight, size_average=False)
 
     def train(self, src_filenames, tgt_filenames, big_epochs: int, print_every=1000, save_every=1000, hidden_size=500):
-        model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, hidden_size)
+        model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, hidden_size, use_cuda=self.use_cuda)
         model.load_embeddings(self.src_word_vectors, self.tgt_word_vectors, enable_training=False)
         model = model.cuda() if self.use_cuda else model
 

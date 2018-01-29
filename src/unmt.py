@@ -56,9 +56,9 @@ class UNMT(nn.Module):
         self.tgt_encoder = EncoderRNN(self.tgt_size, embedding_dim, hidden_size, dropout=dropout,
                                       n_layers=encoder_n_layers)
         self.src_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.src_size, dropout=dropout,
-                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=True)
+                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
         self.tgt_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.tgt_size, dropout=dropout,
-                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=True)
+                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
         self.src_generator = Generator(hidden_size, self.src_size)
         self.tgt_generator = Generator(hidden_size, self.tgt_size)
         self.discriminator = Discriminator(self.max_length, self.hidden_size)
