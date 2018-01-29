@@ -60,6 +60,8 @@ class WordByWordModel:
                 index = variable[t, i].data[0]
                 if index in mapping:
                     output_variable[t, i] = mapping[index]
+                elif index != 0:
+                    output_variable[t, i] = self.src_vocabulary.get_unk()
 
         # Padding
         for i in range(batch_size):
