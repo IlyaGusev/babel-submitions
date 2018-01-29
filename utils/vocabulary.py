@@ -21,7 +21,7 @@ class Vocabulary:
     def get_eos(self):
         return self.index2word.index("</s>")
 
-    def get_ukn(self):
+    def get_unk(self):
         return self.index2word.index("<unk>")
 
     def add_sentence(self, sentence):
@@ -42,7 +42,7 @@ class Vocabulary:
         if word in self.word2index:
             return self.word2index[word]
         else:
-            return self.get_ukn()
+            return self.get_unk()
         
     def get_word(self, index):
         return self.index2word[index]
