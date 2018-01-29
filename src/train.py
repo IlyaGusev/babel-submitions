@@ -5,6 +5,7 @@ from torch import optim
 
 import time
 import numpy as np
+from gensim.models.keyedvectors import KeyedVectors
 
 from utils.batch import OneLangBatch, BatchGenerator, OneLangBatchGenerator, indices_from_sentence
 from src.word_by_word import WordByWordModel, inflate_vocabularies
@@ -76,7 +77,7 @@ class Trainer:
                           (big_epoch, epoch, src_speed, diff, print_loss_avg, val_loss))
                     count_tokens = 0
 
-    def get_one_lang_batches(self, filenames, lang="src", n=1000):
+    def get_one_lang_batches(self, filenames, lang="src", n=None):
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         batch_generator = OneLangBatchGenerator(filenames, self.batch_size, self.max_length, vocabulary)
         batches = []
@@ -84,18 +85,6 @@ class Trainer:
         for batch in batch_generator:
             batches.append(batch)
             if n is not None and i == n:
-                break
-            i += 1
-        return batches
-
-    def get_parallel_batches(self, pair_filenames, n=1000):
-        batch_generator = BatchGenerator(pair_filenames, self.batch_size, self.max_length,
-                                         self.src_vocabulary, self.tgt_vocabulary, self.use_cuda)
-        batches = []
-        i = 0
-        for batch in batch_generator:
-            batches.append(batch)
-            if i == n:
                 break
             i += 1
         return batches
@@ -139,8 +128,8 @@ class Trainer:
 
         self.main_optimizer.zero_grad()
         loss = model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_translated_noisy_batch,
-                     tgt_translated_noisy_batch,
-                     self.batch_size, self.src_criterion, self.tgt_criterion, self.src_vocabulary, self.tgt_vocabulary)
+                     tgt_translated_noisy_batch, self.batch_size, self.src_criterion, self.tgt_criterion,
+                     self.src_vocabulary, self.tgt_vocabulary)
         loss.backward()
         nn.utils.clip_grad_norm(model.parameters(), 5)
         self.main_optimizer.step()

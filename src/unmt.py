@@ -64,12 +64,12 @@ class UNMT(nn.Module):
         self.discriminator = Discriminator(self.max_length, self.hidden_size)
 
     def load_embeddings(self, src_embeddings, tgt_embeddings, enable_training=False):
-        aligned_src_embeddings = torch.randn(self.src_vocabulary.size(), 300)
+        aligned_src_embeddings = torch.div(torch.randn(self.src_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.src_vocabulary.index2word):
             if word in src_embeddings.wv and i > 3:
                 aligned_src_embeddings[i] = torch.FloatTensor(src_embeddings.wv[word])
 
-        aligned_tgt_embeddings = torch.randn(self.tgt_vocabulary.size(), 300)
+        aligned_tgt_embeddings = torch.div(torch.randn(self.tgt_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.tgt_vocabulary.index2word):
             if word in tgt_embeddings.wv and i > 3:
                 aligned_tgt_embeddings[i] = torch.FloatTensor(tgt_embeddings.wv[word])
@@ -106,6 +106,8 @@ class UNMT(nn.Module):
                                         src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
                                         src_batch.variable, batch_size, lang="src")
 
+        print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
+                          src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
