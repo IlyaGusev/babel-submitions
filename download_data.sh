@@ -3,12 +3,8 @@
 set -x
 set -e
 
-OUTPUT_DIR="./models/"
+OUTPUT_DIR="./models"
 mkdir -p $OUTPUT_DIR
-
-wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip -O ${OUTPUT_DIR}/En-Ru.zip
-unzip ${OUTPUT_DIR}/En-Ru.zip
-
 
 for p in en,de en,ru; do IFS=",";
   set $p
@@ -20,11 +16,10 @@ for p in en,de en,ru; do IFS=",";
   wget -nc -nv --show-progress -P ${OUTPUT_DIR} https://s3.amazonaws.com/arrival/embeddings/wiki.multi.$tgt.vec
 done
 
-TEXT_DIR="./data"
+DATA_DIR="./data"
 
-mkdir -p ${TEXT_DIR}
-wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip data.zip
-mv data.zip ${TEXT_DIR}/data.zip
-unzip ${TEXT_DIR}/data.zip
-mv ${TEXT_DIR}/corpus1.txt ${TEXT_DIR}/corpus.en
-mv ${TEXT_DIR}/corpus2.txt ${TEXT_DIR}/corpus.ru
+mkdir -p ${DATA_DIR}
+wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip -O ${DATA_DIR}/data.zip
+unzip ${DATA_DIR}/data.zip -d ${DATA_DIR}
+mv ${DATA_DIR}/corpus1.txt ${DATA_DIR}/corpus.en
+mv ${DATA_DIR}/corpus2.txt ${DATA_DIR}/corpus.ru
