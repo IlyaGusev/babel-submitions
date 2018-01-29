@@ -124,5 +124,11 @@ for f in ${OUTPUT_DIR}/*.en; do
   ${OUTPUT_DIR}/mosesdecoder/scripts/training/clean-corpus-n.perl $fbase de en "${fbase}.clean" 1 80
 done
 
+langs=(en de)
+for l in ${langs[@]}; do
+  split -l 4250000 ${OUTPUT_DIR}/train.tok.clean.$l ${OUTPUT_DIR}/train.tok.split.$l.
+  mv ${OUTPUT_DIR}/train.tok.split.$l.aa ${OUTPUT_DIR}/train_split.tok.$l
+  mv ${OUTPUT_DIR}/train.tok.split.$l.ab ${OUTPUT_DIR}/val_split.tok.$l
+done
 
 echo "All done."
