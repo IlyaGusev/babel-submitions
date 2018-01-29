@@ -1,3 +1,6 @@
+from collections import Counter
+import os
+
 class Vocabulary:
     def __init__(self, language):
         self.language = language
