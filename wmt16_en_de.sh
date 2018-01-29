@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -x
 set -e
 
 
@@ -22,24 +23,24 @@ echo "Writing to ${OUTPUT_DIR}. To change this, set the OUTPUT_DIR environment v
 
 OUTPUT_DIR_DATA="${OUTPUT_DIR}/data"
 
-#mkdir -p $OUTPUT_DIR_DATA
+mkdir -p $OUTPUT_DIR_DATA
 
 #echo "Downloading Europarl v7. This may take a while..."
-wget -nc -nv -O ${OUTPUT_DIR_DATA}/europarl-v7-de-en.tgz \
+wget -nc -nv --show-progress -O ${OUTPUT_DIR_DATA}/europarl-v7-de-en.tgz \
   http://www.statmt.org/europarl/v7/de-en.tgz
 
 #echo "Downloading Common Crawl corpus. This may take a while..."
-wget -nc -nv -O ${OUTPUT_DIR_DATA}/common-crawl.tgz \
+wget -nc -nv --show-progress -O ${OUTPUT_DIR_DATA}/common-crawl.tgz \
   http://www.statmt.org/wmt13/training-parallel-commoncrawl.tgz
 
 #echo "Downloading News Commentary v11. This may take a while..."
-wget -nc -nv -O ${OUTPUT_DIR_DATA}/nc-v11.tgz \
+wget -nc -nv --show-progress -O ${OUTPUT_DIR_DATA}/nc-v11.tgz \
   http://data.statmt.org/wmt16/translation-task/training-parallel-nc-v11.tgz
 
 #echo "Downloading dev/test sets"
-wget -nc -nv -O  ${OUTPUT_DIR_DATA}/dev.tgz \
+wget -nc -nv --show-progress -O  ${OUTPUT_DIR_DATA}/dev.tgz \
   http://data.statmt.org/wmt16/translation-task/dev.tgz
-wget -nc -nv -O  ${OUTPUT_DIR_DATA}/test.tgz \
+wget -nc -nv --show-progress -O  ${OUTPUT_DIR_DATA}/test.tgz \
   http://data.statmt.org/wmt16/translation-task/test.tgz
 
 # Extract everything
