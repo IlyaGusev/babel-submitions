@@ -66,12 +66,12 @@ class UNMT(nn.Module):
     def load_embeddings(self, src_embeddings, tgt_embeddings, enable_training=False):
         aligned_src_embeddings = torch.div(torch.randn(self.src_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.src_vocabulary.index2word):
-            if word in src_embeddings.wv and i > 3:
+            if word in src_embeddings.wv:
                 aligned_src_embeddings[i] = torch.FloatTensor(src_embeddings.wv[word])
 
         aligned_tgt_embeddings = torch.div(torch.randn(self.tgt_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.tgt_vocabulary.index2word):
-            if word in tgt_embeddings.wv and i > 3:
+            if word in tgt_embeddings.wv:
                 aligned_tgt_embeddings[i] = torch.FloatTensor(tgt_embeddings.wv[word])
 
         self.src_encoder.embedding.weight = nn.Parameter(aligned_src_embeddings)

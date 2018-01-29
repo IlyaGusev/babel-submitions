@@ -8,7 +8,7 @@ import time
 import numpy as np
 from gensim.models.keyedvectors import KeyedVectors
 
-from utils.batch import OneLangBatch, BatchGenerator, OneLangBatchGenerator, indices_from_sentence
+from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence
 from src.word_by_word import WordByWordModel, inflate_vocabularies
 from src.unmt import UNMT
 
@@ -27,6 +27,10 @@ class Trainer:
         print("Loading embeddings...")
         self.src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings, binary=False)
         self.tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings, binary=False)
+        for word in self.src_word_vectors.wv.index2word:
+            self.src_vocabulary.add_word(word)
+        for word in self.tgt_word_vectors.wv.index2word:
+            self.tgt_vocabulary.add_word(word)
 
         self.discriminator_optimizer = None
         self.main_optimizer = None
@@ -49,8 +53,8 @@ class Trainer:
         self.discriminator_optimizer = optim.RMSprop(model.discriminator.parameters(), lr=0.0005)
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0003)
 
-        src_batches = self.get_one_lang_batches(src_filenames, lang="src")
-        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt")
+        src_batches = self.get_one_lang_batches(src_filenames, lang="src", n=1000)
+        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", n=1000)
 
         print(model)
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())

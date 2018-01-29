@@ -81,7 +81,7 @@ class AttnDecoderRNN(nn.Module):
     def step(self, input_seq, hidden, encoder_outputs, context):
         # hidden: S = n_layers x B x N
         # encoder_outputs: S = L x B x N
-        embedded = self.embedding(input_seq).unsqueeze(0) # S = 1 x B x E
+        embedded = self.embedding(input_seq).unsqueeze(0)  # S = 1 x B x E
 
         # Combine embedded input word and attended context, run through RNN (input feeding)
         rnn_input = torch.cat((embedded, context), 2)
@@ -89,6 +89,7 @@ class AttnDecoderRNN(nn.Module):
 
         # Calculate attention weights and apply to encoder outputs
         output, attn_weights = self.attn(output, encoder_outputs)
+        assert output.size(2) == self.hidden_size
         # output: # S = 1 x B x N
 
         # Return final output, hidden state, and attention weights (for visualization)
@@ -110,27 +111,25 @@ class AttnDecoderRNN(nn.Module):
         context = initial_context
         current_input = initial_input
 
-        if not one_step:
-            max_input_length = max(input_lengths)
-
-            outputs = Variable(torch.zeros(max_input_length + 1, batch_size, self.hidden_size), requires_grad=False)
-            outputs = outputs.cuda() if self.use_cuda else outputs
-
-            attn_weights = Variable(torch.zeros(max_input_length + 1, batch_size, max_encoder_length),
-                                    requires_grad=False)
-            attn_weights = attn_weights.cuda() if self.use_cuda else attn_weights
-
-            for t in range(max_input_length + 1):
-                if t != 0:
-                    current_input = inputs[t - 1]
-                context, hidden, attn = self.step(current_input, hidden, encoder_outputs, context)
-                outputs[t] = context
-                attn_weights[t] = attn
-
-            return outputs, hidden, attn_weights
-        else:
+        if one_step:
             context, hidden, _ = self.step(current_input, hidden, encoder_outputs, context)
             return context, hidden
+
+        max_input_length = max(input_lengths) + 1
+
+        outputs = Variable(torch.zeros(max_input_length, batch_size, self.hidden_size), requires_grad=False)
+        outputs = outputs.cuda() if self.use_cuda else outputs
+        attn_weights = Variable(torch.zeros(max_input_length, batch_size, max_encoder_length), requires_grad=False)
+        attn_weights = attn_weights.cuda() if self.use_cuda else attn_weights
+
+        for t in range(max_input_length):
+            if t != 0:
+                current_input = inputs[t-1]
+            context, hidden, attn = self.step(current_input, hidden, encoder_outputs, context)
+            outputs[t] = context
+            attn_weights[t] = attn
+
+        return outputs, hidden, attn_weights
 
 
 class Generator(nn.Module):
@@ -144,4 +143,5 @@ class Generator(nn.Module):
         self.sm = nn.LogSoftmax(dim=1)
 
     def forward(self, inputs):
+        assert inputs.size(1) == self.hidden_size
         return self.sm(self.out(inputs))

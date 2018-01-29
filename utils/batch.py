@@ -2,7 +2,6 @@ from utils.vocabulary import Vocabulary
 from typing import List, Tuple
 from utils.tqdm import tqdm_open
 import torch
-import torch.nn as nn
 from torch.autograd import Variable
 
 
@@ -18,7 +17,8 @@ class Batch:
     
     def __str__(self):
         return "Batch: " + str(self.src_variable) + ", " + str(self.tgt_variable) + ", " + str(self.src_lengths) + ", " + str(self.tgt_lengths)
-    
+
+
 class OneLangBatch:
     def __init__(self, variable, lengths):
         self.variable = variable
@@ -29,7 +29,8 @@ class OneLangBatch:
     
     def __str__(self):
         return "OneLangBatch: " + str(self.variable) + ", " + str(self.lengths)
-    
+
+
 def indices_from_sentence(sentence: str, vocabulary: Vocabulary):
     return [vocabulary.get_index(word) for word in sentence.split(' ')] + [vocabulary.get_eos()]
 
@@ -37,6 +38,7 @@ def indices_from_sentence(sentence: str, vocabulary: Vocabulary):
 def pad_seq(seq: List[int], vocabulary: Vocabulary, max_length: int):
     seq += [vocabulary.get_pad() for _ in range(max_length - len(seq))]
     return seq
+
 
 class BatchGenerator:
     def __init__(self, pair_filenames: List[Tuple[str, str]], batch_size: int, max_sentence_len: int,

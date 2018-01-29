@@ -1,26 +1,28 @@
 from collections import Counter
 import os
+import pickle
+
 
 class Vocabulary:
     def __init__(self, language):
         self.language = language
         self.word2index = {}
         self.word2count = Counter()
-        self.index2word = ["<PAD>", "<SOS>", "<EOS>", "<UKN>"]
+        self.index2word = ["<pad>", "</b>", "</s>", "<unk>"]
         if os.path.exists(self.language+".pickle"):
             self.load()
 
     def get_pad(self):
-        return self.index2word.index("<PAD>")
+        return self.index2word.index("<pad>")
 
     def get_sos(self):
-        return self.index2word.index("<SOS>")
+        return self.index2word.index("</b>")
 
     def get_eos(self):
-        return self.index2word.index("<EOS>")
+        return self.index2word.index("</s>")
 
     def get_ukn(self):
-        return self.index2word.index("<UKN>")
+        return self.index2word.index("<unk>")
 
     def add_sentence(self, sentence):
         for word in sentence.split(' '):
@@ -53,7 +55,7 @@ class Vocabulary:
 
     def shrink(self, n):
         best_words = self.word2count.most_common(n)
-        self.index2word = ["<PAD>", "<SOS>", "<EOS>", "<UKN>"]
+        self.index2word = ["<pad>", "</b>", "</s>", "<unk>"]
         self.word2index = {}
         self.word2count = Counter()
         for word, count in best_words:
