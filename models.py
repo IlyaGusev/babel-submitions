@@ -89,7 +89,7 @@ class AttnDecoderRNN(nn.Module):
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
     
-    def init_state(self, batch_size):
+    def init_state(self, batch_size, use_cuda):
         initial_input = Variable(torch.LongTensor([1 for _ in range(batch_size)]), requires_grad=False)
         initial_input = initial_input.cuda() if use_cuda else initial_input
         
@@ -98,7 +98,7 @@ class AttnDecoderRNN(nn.Module):
         
         return initial_input, initial_context
     
-    def forward(self, inputs, input_lengths, hidden, encoder_outputs, initial_input, initial_context):
+    def forward(self, inputs, input_lengths, hidden, encoder_outputs, initial_input, initial_context, use_cuda):
         batch_size = encoder_outputs.size(1)
         max_input_length = max(input_lengths)
         max_encoder_length = encoder_outputs.size(0)
