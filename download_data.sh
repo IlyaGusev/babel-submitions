@@ -5,6 +5,11 @@ set -e
 
 OUTPUT_DIR="./models/"
 mkdir -p $OUTPUT_DIR
+
+wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip -O ${OUTPUT_DIR}/En-Ru.zip
+unzip ${OUTPUT_DIR}/En-Ru.zip
+
+
 for p in en,de en,ru; do IFS=",";
   set $p
   src=$1
