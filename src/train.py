@@ -23,6 +23,7 @@ class Trainer:
             inflate_vocabularies(src_to_tgt_dict_filename, tgt_to_src_filename, src_lang, tgt_lang)
         self.current_model = \
             WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_filename, self.src_vocabulary, self.tgt_vocabulary)
+        print("Loading embeddings...")
         self.src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings, binary=False)
         self.tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings, binary=False)
 
@@ -62,7 +63,8 @@ class Trainer:
             for epoch, (src_batch, tgt_batch) in enumerate(zip(src_batches, tgt_batches)):
                 discriminator_loss, main_loss = self.train_batch(model, src_batch, tgt_batch)
                 self.current_model = model
-                print(discriminator_loss, main_loss)
+                print("Discriminator loss: ", discriminator_loss)
+                print("Main loss: ", main_loss)
 
                 print_loss_total += main_loss
                 count_tokens += sum(src_batch.lengths)
@@ -180,14 +182,15 @@ class Trainer:
     def prepare_translated_variable(self, variable, lang):
         lengths = [len(variable[:, b].data) for b in range(variable.size(1))]
         new_sentences = []
+        print("Input: ", list(variable[:, 0].data))
         for b in range(self.batch_size):
-            print("Input: ", list(variable[:, b].data))
             if lang == "src":
                 translated = self.current_model.translate_src2tgt(variable, lengths)
             else:
                 translated = self.current_model.translate_tgt2src(variable, lengths)
             translated = list(translated.transpose(0, 1)[b].data)
-            print("Translated: ", translated)
+            if b == 0:
+                print("Translated: ", translated)
             new_sentences.append(translated)
         new_sentences = sorted(new_sentences, key=lambda p: len(p), reverse=True)
 
