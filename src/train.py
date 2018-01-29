@@ -5,6 +5,7 @@ from torch import optim
 
 import time
 import numpy as np
+from gensim.models.keyedvectors import KeyedVectors
 
 from utils.batch import OneLangBatch, BatchGenerator, OneLangBatchGenerator, indices_from_sentence
 from src.word_by_word import WordByWordModel, inflate_vocabularies
@@ -22,8 +23,8 @@ class Trainer:
             inflate_vocabularies(src_to_tgt_dict_filename, tgt_to_src_filename, src_lang, tgt_lang)
         self.current_model = \
             WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_filename, self.src_vocabulary, self.tgt_vocabulary)
-        #         self.src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings, binary=False)
-        #         self.tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings, binary=False)
+        self.src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings, binary=False)
+        self.tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings, binary=False)
 
         self.discriminator_optimizer = None
         self.main_optimizer = None
@@ -40,14 +41,14 @@ class Trainer:
 
     def train(self, src_filenames, tgt_filenames, big_epochs: int, print_every=1000, save_every=1000, hidden_size=500):
         model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, hidden_size)
-        #         model.load_embeddings(self.src_word_vectors, self.tgt_word_vectors, enable_training=False)
+        model.load_embeddings(self.src_word_vectors, self.tgt_word_vectors, enable_training=False)
         model = model.cuda() if self.use_cuda else model
 
-        self.discriminator_optimizer = optim.Adam(model.discriminator.parameters(), lr=0.0001)
-        self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0001)
+        self.discriminator_optimizer = optim.RMSprop(model.discriminator.parameters(), lr=0.0005)
+        self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0003)
 
-        src_batches = self.get_one_lang_batches(src_filenames)
-        tgt_batches = self.get_one_lang_batches(tgt_filenames)
+        src_batches = self.get_one_lang_batches(src_filenames, lang="src")
+        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt")
 
         print(model)
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
@@ -76,26 +77,14 @@ class Trainer:
                           (big_epoch, epoch, src_speed, diff, print_loss_avg, val_loss))
                     count_tokens = 0
 
-    def get_one_lang_batches(self, filenames, lang="src", n=1000):
+    def get_one_lang_batches(self, filenames, lang="src", n=None):
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         batch_generator = OneLangBatchGenerator(filenames, self.batch_size, self.max_length, vocabulary)
         batches = []
         i = 0
         for batch in batch_generator:
             batches.append(batch)
-            if i == n:
-                break
-            i += 1
-        return batches
-
-    def get_parallel_batches(self, pair_filenames, n=1000):
-        batch_generator = BatchGenerator(pair_filenames, self.batch_size, self.max_length,
-                                         self.src_vocabulary, self.tgt_vocabulary, use_cuda)
-        batches = []
-        i = 0
-        for batch in batch_generator:
-            batches.append(batch)
-            if i == n:
+            if n is not None and i == n:
                 break
             i += 1
         return batches
@@ -129,8 +118,8 @@ class Trainer:
         src_noisy_batch = self.prepare_noisy_input(src_batch)
         tgt_noisy_batch = self.prepare_noisy_input(tgt_batch)
 
-        src_translated_noisy_batch = self.prepare_translated_noisy_input(src_batch)
-        tgt_translated_noisy_batch = self.prepare_translated_noisy_input(tgt_batch)
+        src_translated_noisy_batch = self.prepare_translated_noisy_input(src_batch, lang="src")
+        tgt_translated_noisy_batch = self.prepare_translated_noisy_input(tgt_batch, lang="tgt")
 
         src_noisy_batch = src_noisy_batch.cuda() if self.use_cuda else src_noisy_batch
         tgt_noisy_batch = tgt_noisy_batch.cuda() if self.use_cuda else tgt_noisy_batch
@@ -139,8 +128,8 @@ class Trainer:
 
         self.main_optimizer.zero_grad()
         loss = model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_translated_noisy_batch,
-                     tgt_translated_noisy_batch,
-                     self.batch_size, self.src_criterion, self.tgt_criterion, self.src_vocabulary, self.tgt_vocabulary)
+                     tgt_translated_noisy_batch, self.batch_size, self.src_criterion, self.tgt_criterion,
+                     self.src_vocabulary, self.tgt_vocabulary)
         loss.backward()
         nn.utils.clip_grad_norm(model.parameters(), 5)
         self.main_optimizer.step()
@@ -164,7 +153,7 @@ class Trainer:
         new_variable, new_lengths = self.prepare_noisy_variable(batch.variable)
         return OneLangBatch(new_variable, new_lengths)
 
-    def prepare_translated_noisy_input(self, batch: OneLangBatch, lang="src"):
+    def prepare_translated_noisy_input(self, batch: OneLangBatch, lang):
         new_variable, _ = self.prepare_translated_variable(batch.variable, lang=lang)
         new_variable, new_lengths = self.prepare_noisy_variable(new_variable)
         return OneLangBatch(new_variable, new_lengths)
@@ -188,7 +177,7 @@ class Trainer:
             new_lengths.append(len(sentence))
         return new_varibale.transpose(0, 1), new_lengths
 
-    def prepare_translated_variable(self, variable, lang="src"):
+    def prepare_translated_variable(self, variable, lang):
         lengths = [len(variable[:, b].data) for b in range(variable.size(1))]
         new_sentences = []
         for b in range(self.batch_size):

@@ -64,12 +64,12 @@ class UNMT(nn.Module):
         self.discriminator = Discriminator(self.max_length, self.hidden_size)
 
     def load_embeddings(self, src_embeddings, tgt_embeddings, enable_training=False):
-        aligned_src_embeddings = torch.randn(self.src_vocabulary.size(), 300)
+        aligned_src_embeddings = torch.div(torch.randn(self.src_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.src_vocabulary.index2word):
             if word in src_embeddings.wv and i > 3:
                 aligned_src_embeddings[i] = torch.FloatTensor(src_embeddings.wv[word])
 
-        aligned_tgt_embeddings = torch.randn(self.tgt_vocabulary.size(), 300)
+        aligned_tgt_embeddings = torch.div(torch.randn(self.tgt_vocabulary.size(), 300), 10)
         for i, word in enumerate(self.tgt_vocabulary.index2word):
             if word in tgt_embeddings.wv and i > 3:
                 aligned_tgt_embeddings[i] = torch.FloatTensor(tgt_embeddings.wv[word])
@@ -106,6 +106,8 @@ class UNMT(nn.Module):
                                         src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
                                         src_batch.variable, batch_size, lang="src")
 
+        print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
+                          src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
@@ -122,23 +124,17 @@ class UNMT(nn.Module):
 
         encoder_output, encoder_hidden = encoder(variable, lengths, None)
         initial_input, initial_context = decoder.init_state(batch_size)
-        for t in range(self.max_length):
-            decoder_output, decoder_hidden, attn_weights = \
-                decoder(output_variable, [t + 1 for _ in range(batch_size)], encoder_hidden,
-                        encoder_output, initial_input, initial_context)
 
-            scores = generator(decoder_output[t])
-            for i in range(batch_size):
-                topv, topi = scores.data[i].topk(1)
-                output_variable[t, i] = topi[0]
-        # Padding
-        for i in range(batch_size):
-            eos_index = self.max_length - 1
-            for t in range(self.max_length):
-                if output_variable[t, i].data[0] == 2:
-                    eos_index = t
-            for t in range(eos_index + 1, self.max_length):
-                output_variable[t, i] = 0
+        hidden = encoder_hidden
+        current_input = initial_input
+        current_context = initial_context
+        for t in range(self.max_length):
+            current_context, hidden = decoder(None, None, hidden, encoder_output,
+                                              current_input, current_context, one_step=True)
+            scores = generator(current_context.squeeze(0))
+            indices = scores.topk(1, dim=1)[1]
+            output_variable[t] = indices
+        output_variable = output_variable.detach()
         return output_variable
 
     def auto_encoder_decoder_run(self, encoder, decoder, generator, criterion, variable,
@@ -150,9 +146,9 @@ class UNMT(nn.Module):
         adv_criterion = nn.NLLLoss()
         log_proba = self.discriminator(encoder_output)
         if lang == "src":
-            target_variable = Variable(torch.LongTensor([0 for _ in range(batch_size)]))
-        else:
             target_variable = Variable(torch.LongTensor([1 for _ in range(batch_size)]))
+        else:
+            target_variable = Variable(torch.LongTensor([0 for _ in range(batch_size)]))
         target_variable = target_variable.cuda() if self.use_cuda else target_variable
         adv_loss = adv_criterion(log_proba, target_variable)
 
@@ -176,9 +172,9 @@ class UNMT(nn.Module):
         adv_criterion = nn.NLLLoss()
         log_proba = self.discriminator(encoder_output)
         if lang == "src":
-            target_variable = Variable(torch.LongTensor([1 for _ in range(batch_size)]))
-        else:
             target_variable = Variable(torch.LongTensor([0 for _ in range(batch_size)]))
+        else:
+            target_variable = Variable(torch.LongTensor([1 for _ in range(batch_size)]))
         target_variable = target_variable.cuda() if self.use_cuda else target_variable
         adv_loss = adv_criterion(log_proba, target_variable)
 
