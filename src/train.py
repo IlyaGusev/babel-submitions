@@ -6,6 +6,7 @@ from torch import optim
 
 import time
 import numpy as np
+from gensim.models.keyedvectors import KeyedVectors
 
 from utils.batch import OneLangBatch, BatchGenerator, OneLangBatchGenerator, indices_from_sentence
 from src.word_by_word import WordByWordModel, inflate_vocabularies
@@ -23,6 +24,7 @@ class Trainer:
             inflate_vocabularies(src_to_tgt_dict_filename, tgt_to_src_filename, src_lang, tgt_lang)
         self.current_model = \
             WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_filename, self.src_vocabulary, self.tgt_vocabulary)
+        print("Loading embeddings...")
         self.src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings, binary=False)
         self.tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings, binary=False)
 
@@ -62,7 +64,8 @@ class Trainer:
             for epoch, (src_batch, tgt_batch) in enumerate(zip(src_batches, tgt_batches)):
                 discriminator_loss, main_loss = self.train_batch(model, src_batch, tgt_batch)
                 self.current_model = model
-                print(discriminator_loss, main_loss)
+                print("Discriminator loss: ", discriminator_loss)
+                print("Main loss: ", main_loss)
 
                 print_loss_total += main_loss
                 count_tokens += sum(src_batch.lengths)
@@ -77,7 +80,7 @@ class Trainer:
                           (big_epoch, epoch, src_speed, diff, print_loss_avg, val_loss))
                     count_tokens = 0
 
-    def get_one_lang_batches(self, filenames, lang="src", n=1000):
+    def get_one_lang_batches(self, filenames, lang="src", n=None):
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         batch_generator = OneLangBatchGenerator(filenames, self.batch_size, self.max_length, vocabulary)
         batches = []
@@ -85,18 +88,6 @@ class Trainer:
         for batch in batch_generator:
             batches.append(batch)
             if n is not None and i == n:
-                break
-            i += 1
-        return batches
-
-    def get_parallel_batches(self, pair_filenames, n=1000):
-        batch_generator = BatchGenerator(pair_filenames, self.batch_size, self.max_length,
-                                         self.src_vocabulary, self.tgt_vocabulary, self.use_cuda)
-        batches = []
-        i = 0
-        for batch in batch_generator:
-            batches.append(batch)
-            if i == n:
                 break
             i += 1
         return batches
@@ -140,8 +131,8 @@ class Trainer:
 
         self.main_optimizer.zero_grad()
         loss = model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_translated_noisy_batch,
-                     tgt_translated_noisy_batch,
-                     self.batch_size, self.src_criterion, self.tgt_criterion, self.src_vocabulary, self.tgt_vocabulary)
+                     tgt_translated_noisy_batch, self.batch_size, self.src_criterion, self.tgt_criterion,
+                     self.src_vocabulary, self.tgt_vocabulary)
         loss.backward()
         nn.utils.clip_grad_norm(model.parameters(), 5)
         self.main_optimizer.step()
@@ -192,14 +183,15 @@ class Trainer:
     def prepare_translated_variable(self, variable, lang):
         lengths = [len(variable[:, b].data) for b in range(variable.size(1))]
         new_sentences = []
+        print("Input: ", list(variable[:, 0].data))
         for b in range(self.batch_size):
-            print("Input: ", list(variable[:, b].data))
             if lang == "src":
                 translated = self.current_model.translate_src2tgt(variable, lengths)
             else:
                 translated = self.current_model.translate_tgt2src(variable, lengths)
             translated = list(translated.transpose(0, 1)[b].data)
-            print("Translated: ", translated)
+            if b == 0:
+                print("Translated: ", translated)
             new_sentences.append(translated)
         new_sentences = sorted(new_sentences, key=lambda p: len(p), reverse=True)
 
