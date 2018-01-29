@@ -1,4 +1,5 @@
- .env
+download_data.sh .env
 .ipynb_checkpoints
 __pycache__
 data
+models
