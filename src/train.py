@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from gensim.models import KeyedVectors
 from torch.autograd import Variable
 from torch import optim
 
@@ -161,7 +160,8 @@ class Trainer:
         return OneLangBatch(new_variable, new_lengths)
 
     def prepare_translated_noisy_input(self, batch: OneLangBatch, lang):
-        new_variable, _ = self.prepare_translated_variable(batch.variable, lang=lang)
+        translation = self.current_model.translate_src2tgt if lang == "src" else self.current_model.translate_tgt2src
+        new_variable, _ = self.prepare_translated_variable(translation, batch.variable)
         new_variable, new_lengths = self.prepare_noisy_variable(new_variable)
         return OneLangBatch(new_variable, new_lengths)
 
@@ -184,29 +184,16 @@ class Trainer:
             new_lengths.append(len(sentence))
         return new_varibale.transpose(0, 1), new_lengths
 
-    def prepare_translated_variable(self, variable, lang):
-        lengths = [len(variable[:, b].data) for b in range(variable.size(1))]
-        new_sentences = []
+    @staticmethod
+    def prepare_translated_variable(translation, variable):
+        batch_size = variable.size(1)
+        lengths = [len(variable[:, b].data) for b in range(batch_size)]
         print("Input: ", list(variable[:, 0].data))
-        for b in range(self.batch_size):
-            if lang == "src":
-                translated = self.current_model.translate_src2tgt(variable, lengths)
-            else:
-                translated = self.current_model.translate_tgt2src(variable, lengths)
-            translated = list(translated.transpose(0, 1)[b].data)
-            if b == 0:
-                print("Translated: ", translated)
-            new_sentences.append(translated)
-        new_sentences = sorted(new_sentences, key=lambda p: len(p), reverse=True)
-
-        lengths = [len(sentence) for sentence in new_sentences]
-        max_length = max(lengths)
-        new_variable = Variable(torch.zeros(self.batch_size, max_length)).type(torch.LongTensor)
-        for b in range(self.batch_size):
-            current_sentence = new_sentences[b]
-            current_sentence = current_sentence + [0 for _ in range(max_length - len(current_sentence))]
-            new_variable[b] = torch.LongTensor(current_sentence)
-        return new_variable.transpose(0, 1), lengths
+        translated = translation(variable=variable, lengths=list(lengths))
+        translated.transpose(0, 1)
+        lengths = [len(translated[:, b].data) for b in range(batch_size)]
+        print("Translated: ", list(translated[:, 0].data))
+        return translated, lengths
 
     @staticmethod
     def add_noise(sequence, drop_probability=0.1, shuffle_max_distance=3):
