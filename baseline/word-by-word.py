@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
 
     print(lang1, lang2)
-    
+ 
     output_data = []
     for line in input_data:
         output_data.append(translate(line, dict1, dict2))
