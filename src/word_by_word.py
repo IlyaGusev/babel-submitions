@@ -43,10 +43,10 @@ class WordByWordModel:
                 mapping[first_index] = second_index
         return mapping
 
-    def translate_src2tgt(self, variable: Variable, lengths):
+    def translate_src2tgt(self, variable: Variable, lengths: int):
         return self.map_variable(variable, self.src2tgt)
 
-    def translate_tgt2src(self, variable: Variable, lengths):
+    def translate_tgt2src(self, variable: Variable, lengths: int):
         return self.map_variable(variable, self.tgt2src)
 
     def map_variable(self, variable: Variable, mapping: Dict[int, int]):
