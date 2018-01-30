@@ -21,5 +21,5 @@ DATA_DIR="./data"
 mkdir -p ${DATA_DIR}
 wget https://www.dropbox.com/s/b72usjc4fakhidc/En-Ru.zip -O ${DATA_DIR}/data.zip
 unzip ${DATA_DIR}/data.zip -d ${DATA_DIR}
-# mv ${DATA_DIR}/corpus1.txt ${DATA_DIR}/corpus.en
-# mv ${DATA_DIR}/corpus2.txt ${DATA_DIR}/corpus.ru
+mv ${DATA_DIR}/corpus1.txt ${DATA_DIR}/corpus.en
+mv ${DATA_DIR}/corpus2.txt ${DATA_DIR}/corpus.ru
