@@ -48,13 +48,13 @@ if __name__ == "__main__":
     lang1 = lang_detect(corpus1[:100])
 
     lang2 = lang_detect(corpus2[:100])
-    
+
     dict1 = get_dictionary(lang1, "en")
     dict2 = get_dictionary("en", lang2)
 
 
     print(lang1, lang2)
-    print(len(corpus1), len(corpus2), len(input_data))
+    
     output_data = []
     for line in input_data:
         output_data.append(translate(line, dict1, dict2))
