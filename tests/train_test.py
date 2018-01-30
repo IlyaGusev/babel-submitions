@@ -33,6 +33,11 @@ class TestTrainer(unittest.TestCase):
         np.testing.assert_array_equal(np.array([10, 10]), lengths)
         np.testing.assert_array_equal(translated.T, var.data)
 
+    def test_add_noise(self):
+        res = src.train.Trainer.add_noise(np.array([997, 51540, 3, 2770, 3, 267, 42681, 2]))
+        assert res[-1] == 2
+        assert len(res) > 0
+
 
 if __name__ == '__main__':
     unittest.main()
