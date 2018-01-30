@@ -82,7 +82,7 @@ class Trainer:
               tgt_embeddings_filename, src_to_tgt_dict_filename, tgt_to_src_dict_filename,
               big_epochs: int, print_every=1000, save_every=1000, hidden_size=200, n_layers=3, batch_size: int=32,
               src_max_words=80000, tgt_max_words=100000, load_pretrained_embeddings=True, discriminator_lr=0.0005,
-              main_lr=0.0003, main_betas=(0.5, 0.999)):
+              main_lr=0.0003, main_betas=(0.5, 0.999), n_batches=None):
 
         self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
                                   src_max_words=src_max_words, tgt_max_words=tgt_max_words)
@@ -99,8 +99,8 @@ class Trainer:
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                          lr=main_lr, betas=main_betas)
 
-        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=1000)
-        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=1000)
+        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
+        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
 
         print(self.model)
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
