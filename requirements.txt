@@ -1,8 +1,9 @@
 matplotlib
 scipy
 numpy
+langdetect
 sklearn
 jupyter
-torch
 tqdm
 gensim
+torch

@@ -9,11 +9,12 @@ def lang_detect(lines):
     lang1 = Counter(l).most_common(1)[0][0]
     return lang1
 
-data_dir = './'
-filenames = ['corpus1.txt', 'corpus2.txt']
+if __name__ == "__main__":
+    data_dir = './'
+    filenames = ['corpus1.txt', 'corpus2.txt']
 
-for filename in filenames:
-    with open(data_dir + filename, 'r') as f:
-        lines = f.readlines()[:1000]
-        print(lang_detect(lines))
+    for filename in filenames:
+        with open(data_dir + filename, 'r') as f:
+            lines = f.readlines()[:1000]
+            print(lang_detect(lines))
 
