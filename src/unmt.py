@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from src.models import EncoderRNN, AttnDecoderRNN, Generator
+from src.models import EncoderRNN, Generator, DecoderRNN
 
 
 class Discriminator(nn.Module):
@@ -20,7 +20,7 @@ class Discriminator(nn.Module):
         for i in range(n_layers - 1):
             layers.append(nn.Linear(hidden_size, hidden_size))
         self.layers = nn.ModuleList(layers)
-        self.out = nn.Linear(hidden_size, 2)
+        self.out = nn.Linear(hidden_size, 1)
 
     def forward(self, encoder_output):
         max_length = encoder_output.size(0)
@@ -31,7 +31,7 @@ class Discriminator(nn.Module):
         for i in range(self.n_layers):
             output = self.layers[i](output)
             output = self.activation(output)
-        return F.log_softmax(self.out(output), dim=1)
+        return F.sigmoid(self.out(output))
 
 
 class UNMT(nn.Module):
@@ -55,10 +55,10 @@ class UNMT(nn.Module):
                                       n_layers=encoder_n_layers)
         self.tgt_encoder = EncoderRNN(self.tgt_size, embedding_dim, hidden_size, dropout=dropout,
                                       n_layers=encoder_n_layers)
-        self.src_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.src_size, dropout=dropout,
-                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
-        self.tgt_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.tgt_size, dropout=dropout,
-                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
+        self.src_decoder = DecoderRNN(embedding_dim, hidden_size, self.src_size, dropout=dropout,
+                                      max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
+        self.tgt_decoder = DecoderRNN(embedding_dim, hidden_size, self.tgt_size, dropout=dropout,
+                                      max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
         self.src_generator = Generator(hidden_size, self.src_size)
         self.tgt_generator = Generator(hidden_size, self.tgt_size)
         self.discriminator = Discriminator(self.max_length, self.hidden_size)
@@ -99,12 +99,12 @@ class UNMT(nn.Module):
         cd_tgt_adv_loss, cd_tgt_cd_loss = \
             self.cd_encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
                                         tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
-                                        tgt_batch.variable, batch_size, lang="tgt")
+                                        tgt_batch.variable, tgt_batch.lengths, batch_size, lang="tgt")
 
         cd_src_adv_loss, cd_src_cd_loss = \
             self.cd_encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
                                         src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
-                                        src_batch.variable, batch_size, lang="src")
+                                        src_batch.variable, src_batch.lengths, batch_size, lang="src")
 
         print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
                           src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
@@ -122,18 +122,12 @@ class UNMT(nn.Module):
         output_variable = Variable(torch.zeros(self.max_length, batch_size)).type(torch.LongTensor)
         output_variable = output_variable.cuda() if self.use_cuda else output_variable
 
-        encoder_output, encoder_hidden = encoder(variable, lengths, None)
-        initial_input, initial_context = decoder.init_state(batch_size)
-
-        hidden = encoder_hidden
-        current_input = initial_input
-        current_context = initial_context
+        encoder_output, hidden = encoder(variable, lengths, None)
+        current_input = decoder.init_state(batch_size)
         for t in range(self.max_length):
-            current_context, hidden = decoder(None, None, hidden, encoder_output,
-                                              current_input, current_context, one_step=True)
-            scores = generator(current_context.squeeze(0))
-            indices = scores.topk(1, dim=1)[1]
-            output_variable[t] = indices
+            output, hidden = decoder(None, None, hidden, current_input, one_step=True)
+            scores = generator(output.squeeze(0))
+            output_variable[t] = scores.topk(1, dim=1)[1]
         output_variable = output_variable.detach()
         return output_variable
 
@@ -143,50 +137,46 @@ class UNMT(nn.Module):
         encoder_output, encoder_hidden = encoder(variable, lengths, None)
 
         # Adversarial part
-        adv_criterion = nn.NLLLoss()
-        log_proba = self.discriminator(encoder_output)
-        if lang == "src":
-            target_variable = Variable(torch.LongTensor([1 for _ in range(batch_size)]))
-        else:
-            target_variable = Variable(torch.LongTensor([0 for _ in range(batch_size)]))
+        target_tensor = torch.add(torch.ones((batch_size,)), -0.1) if lang == "src" \
+            else torch.add(torch.zeros((batch_size,)), 0.1)
+        target_variable = Variable(target_tensor, requires_grad=False)
         target_variable = target_variable.cuda() if self.use_cuda else target_variable
-        adv_loss = adv_criterion(log_proba, target_variable)
+        adv_loss = self.get_discriminator_loss(encoder_output, target_variable)
 
         # Auto part
-        initial_input, initial_context = decoder.init_state(batch_size)
-        decoder_output, _, _ = decoder(variable, lengths, encoder_hidden, encoder_output,
-                                       initial_input, initial_context)
         auto_loss = 0
+        initial_input = decoder.init_state(batch_size)
+        decoder_output, _ = decoder(variable, lengths, encoder_hidden, initial_input)
         max_length = max(lengths)
         for t in range(max_length):
             scores = generator(decoder_output[t])
             auto_loss += criterion(scores, variable[t])
-
         return adv_loss, auto_loss
 
     def cd_encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
-                               gt_variable, batch_size, lang="src"):
+                               gt_variable, gt_lengths, batch_size, lang="src"):
         encoder_output, encoder_hidden = encoder(variable, lengths, None)
 
         # Adversarial part
-        adv_criterion = nn.NLLLoss()
-        log_proba = self.discriminator(encoder_output)
-        if lang == "src":
-            target_variable = Variable(torch.LongTensor([0 for _ in range(batch_size)]))
-        else:
-            target_variable = Variable(torch.LongTensor([1 for _ in range(batch_size)]))
+        target_tensor = torch.add(torch.ones((batch_size,)), -0.1) if lang == "tgt" \
+            else torch.add(torch.zeros((batch_size,)), 0.1)
+        target_variable = Variable(target_tensor, requires_grad=False)
         target_variable = target_variable.cuda() if self.use_cuda else target_variable
-        adv_loss = adv_criterion(log_proba, target_variable)
+        adv_loss = self.get_discriminator_loss(encoder_output, target_variable)
 
         # Cross-domain part
-        initial_input, initial_context = decoder.init_state(batch_size)
-        decoder_output, _, _ = decoder(variable, lengths, encoder_hidden, encoder_output,
-                                       initial_input, initial_context)
-
         cd_loss = 0
-        max_length = gt_variable.size(0)
+        initial_input = decoder.init_state(batch_size)
+        decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
+        max_length = max(gt_lengths)
         for t in range(max_length):
             scores = generator(decoder_output[t])
             cd_loss += criterion(scores, gt_variable[t])
-
         return adv_loss, cd_loss
+
+    def get_discriminator_loss(self, encoder_output, target_variable):
+        adv_criterion = nn.BCELoss()
+        log_prob = self.discriminator(encoder_output)
+        log_prob = log_prob.view(-1)
+        adv_loss = adv_criterion(log_prob, target_variable)
+        return adv_loss

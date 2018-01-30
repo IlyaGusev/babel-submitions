@@ -34,6 +34,66 @@ class EncoderRNN(nn.Module):
         return outputs, hidden
 
 
+class DecoderRNN(nn.Module):
+    def __init__(self, embedding_dim, hidden_size, output_size, n_layers=3,
+                 dropout=0.1, max_length=50, use_cuda=False):
+        super(DecoderRNN, self).__init__()
+
+        self.embedding_dim = embedding_dim
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.dropout = dropout
+        self.max_length = max_length
+        self.use_cuda = use_cuda
+
+        self.embedding = nn.Embedding(output_size, embedding_dim)
+        self.rnn = nn.LSTM(embedding_dim, hidden_size, n_layers, dropout=dropout)
+
+    def step(self, input_seq, hidden):
+        # hidden: S = n_layers x B x N
+        embedded = self.embedding(input_seq).unsqueeze(0)  # S = 1 x B x E
+        output, hidden = self.rnn(embedded, hidden)
+        return output, hidden
+
+    def init_state(self, batch_size):
+        initial_input = Variable(torch.ones((batch_size, )).type(torch.LongTensor), requires_grad=False)
+        initial_input = initial_input.cuda() if self.use_cuda else initial_input
+        return initial_input
+
+    def forward(self, inputs, input_lengths, hidden, initial_input, one_step=False):
+        current_input = initial_input
+        if one_step:
+            output, hidden = self.step(current_input, hidden)
+            return output, hidden
+
+        batch_size = len(input_lengths)
+        max_input_length = max(input_lengths) + 1
+        outputs = Variable(torch.zeros(max_input_length, batch_size, self.hidden_size), requires_grad=False)
+        outputs = outputs.cuda() if self.use_cuda else outputs
+        for t in range(max_input_length):
+            if t != 0:
+                current_input = inputs[t-1]
+            output, hidden = self.step(current_input, hidden)
+            outputs[t] = output
+        return outputs, hidden
+
+
+class Generator(nn.Module):
+    def __init__(self, hidden_size, output_size):
+        super(Generator, self).__init__()
+
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+
+        self.out = nn.Linear(hidden_size, output_size)
+        self.sm = nn.LogSoftmax(dim=1)
+
+    def forward(self, inputs):
+        assert inputs.size(1) == self.hidden_size
+        return self.sm(self.out(inputs))
+
+
 class Attn(nn.Module):
     def __init__(self, hidden_size):
         super(Attn, self).__init__()
@@ -130,18 +190,3 @@ class AttnDecoderRNN(nn.Module):
             attn_weights[t] = attn
 
         return outputs, hidden, attn_weights
-
-
-class Generator(nn.Module):
-    def __init__(self, hidden_size, output_size):
-        super(Generator, self).__init__()
-
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-
-        self.out = nn.Linear(hidden_size, output_size)
-        self.sm = nn.LogSoftmax(dim=1)
-
-    def forward(self, inputs):
-        assert inputs.size(1) == self.hidden_size
-        return self.sm(self.out(inputs))

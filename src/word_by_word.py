@@ -5,22 +5,6 @@ from typing import List, Tuple, Dict
 from utils.batch import indices_from_sentence
 
 
-def inflate_vocabularies(src_to_tgt_dict_filename: str, tgt_to_src_dict_filename: str, src_lang: str, tgt_lang: str):
-    src_vocabulary = Vocabulary(language=src_lang)
-    tgt_vocabulary = Vocabulary(language=tgt_lang)
-    with open(src_to_tgt_dict_filename, "r", encoding='utf-8') as r:
-        for line in r:
-            src_word, tgt_word = line.strip().split()
-            src_vocabulary.add_word(src_word)
-            tgt_vocabulary.add_word(tgt_word)
-    with open(tgt_to_src_dict_filename, "r", encoding='utf-8') as r:
-        for line in r:
-            tgt_word, src_word = line.strip().split()
-            src_vocabulary.add_word(src_word)
-            tgt_vocabulary.add_word(tgt_word)
-    return src_vocabulary, tgt_vocabulary
-
-
 class WordByWordModel:
     def __init__(self, src_to_tgt_dict_filename: str, tgt_to_src_dict_filename: str, src_vocabulary: Vocabulary,
                  tgt_vocabulary: Vocabulary, max_length: int=50):
