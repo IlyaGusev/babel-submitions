@@ -106,8 +106,8 @@ class UNMT(nn.Module):
                                         src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
                                         src_batch.variable, src_batch.lengths, batch_size, lang="src")
 
-        print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
-                          src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
+        # print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
+        #                   src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
