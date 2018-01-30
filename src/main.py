@@ -10,8 +10,8 @@ SRC_TO_TGT_DICT_FILENAME = "models/" + SRC_LANG + "-" + TGT_LANG + ".txt"
 TGT_TO_SRC_DICT_FILENAME = "models/" + TGT_LANG + "-" + SRC_LANG + ".txt"
 SRC_EMBEDDINGS = "models/wiki.multi." + SRC_LANG + ".vec"
 TGT_EMBEDDINGS = "models/wiki.multi." + TGT_LANG + ".vec"
-SRC_CORPUS = "data/corpus.tok.clean." + SRC_LANG
-TGT_CORPUS = "data/corpus.tok.clean." + TGT_LANG
+SRC_CORPUS = "data/corpus.tok.clean.tc." + SRC_LANG
+TGT_CORPUS = "data/corpus.tok.clean.tc." + TGT_LANG
 
 state = Trainer(SRC_TO_TGT_DICT_FILENAME, TGT_TO_SRC_DICT_FILENAME, SRC_LANG, TGT_LANG,
                 SRC_EMBEDDINGS, TGT_EMBEDDINGS, batch_size=2, use_cuda=use_cuda)

@@ -12,13 +12,15 @@ if [ ! -d "${OUTPUT_DIR}/mosesdecoder" ]; then
   git clone https://github.com/moses-smt/mosesdecoder.git "${OUTPUT_DIR}/mosesdecoder"
 fi
 
+mosesdecoder=${OUTPUT_DIR}/mosesdecoder
+
 langs=(en ru)
 
 # Tokenize data
 for l in ${langs[@]}; do
   f="$OUTPUT_DIR/corpus.$l"
   echo "Tokenizing $f..."
-  ${OUTPUT_DIR}/mosesdecoder/scripts/tokenizer/tokenizer.perl -q -l $l -threads 8 < $f > ${f%.*}.tok.$l
+  $mosesdecoder/scripts/tokenizer/tokenizer.perl -q -l $l -threads 8 < $f > ${f%.*}.tok.$l
 done
 
 function join_by { local IFS="$1"; shift; echo "$*"; }
@@ -29,6 +31,15 @@ for f in ${OUTPUT_DIR}/*.tok.${langs}; do
   echo "Cleaning ${fbase}..."
   l=$(join_by " " ${langs[@]})
   ./clean-corpus-n-monolingual.perl $fbase $l "${fbase}.clean" 1 80
+done
+
+# Train truecaser
+for f in ${OUTPUT_DIR}/*.tok.clean.${langs}; do
+  fbase=${f%.*}
+  echo "truecaser ${fbase}..."
+  for l in ${langs[@]}; do
+    $mosesdecoder/scripts/recaser/train-truecaser.perl -corpus $fbase.$l -model $fbase-truecase-model.$l
+  done
 done
 
 echo "All done."
