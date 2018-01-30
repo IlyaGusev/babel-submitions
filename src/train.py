@@ -82,7 +82,7 @@ class Trainer:
               tgt_embeddings_filename, src_to_tgt_dict_filename, tgt_to_src_dict_filename,
               big_epochs: int, print_every=1000, save_every=1000, hidden_size=200, n_layers=3, batch_size: int=32,
               src_max_words=80000, tgt_max_words=100000, load_pretrained_embeddings=True, discriminator_lr=0.0005,
-              main_lr=0.0003, main_betas=(0.5, 0.999)):
+              main_lr=0.0003, main_betas=(0.5, 0.999), n_batches=None):
 
         self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
                                   src_max_words=src_max_words, tgt_max_words=tgt_max_words)
@@ -99,8 +99,8 @@ class Trainer:
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                          lr=main_lr, betas=main_betas)
 
-        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=1000)
-        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=1000)
+        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
+        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
 
         print(self.model)
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
@@ -109,20 +109,47 @@ class Trainer:
 
         for big_epoch in range(big_epochs):
             timer = time.time()
-            print_loss_total = 0
+            print_main_loss_total = 0
+            print_discriminator_loss_total = 0
             for epoch, (src_batch, tgt_batch) in enumerate(zip(src_batches, tgt_batches)):
                 discriminator_loss, main_loss = self.train_batch(src_batch, tgt_batch)
-                print("Discriminator loss: ", discriminator_loss)
-                print("Main loss: ", main_loss)
+                # print("Discriminator loss: ", discriminator_loss)
+                # print("Main loss: ", main_loss)
 
-                print_loss_total += main_loss
+                print_main_loss_total += main_loss
+                print_discriminator_loss_total += discriminator_loss
                 if epoch % save_every == 0 and epoch != 0:
-                    print_loss_avg = print_loss_total / print_every
-                    print_loss_total = 0
+                    self.save("model.pt")
+                if epoch % print_every == 0 and epoch != 0:
+                    print_main_loss_avg = print_main_loss_total / print_every
+                    print_discriminator_loss_avg = print_discriminator_loss_total / print_every
+                    print_main_loss_total = 0
+                    print_discriminator_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
-                    print('%s big epoch, %s epoch, %s sec, %.4f loss' % (big_epoch, epoch, diff, print_loss_avg))
+                    print('%s big epoch, %s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
+                          (big_epoch, epoch, diff, print_main_loss_avg, print_discriminator_loss_avg))
             self.current_translation_model = self.model
+
+    @staticmethod
+    def save_model(module, discriminator_optimizer, main_optimizer, filename):
+        state_dict = module.state_dict()
+        for key in state_dict.keys():
+            state_dict[key] = state_dict[key].cpu()
+        torch.save({
+            'state_dict': state_dict,
+            'discriminator_optimizer': discriminator_optimizer.state_dict(),
+            'main_optimizer': main_optimizer.state_dict(),
+        }, filename)
+
+    def save(self, model_filename):
+        Trainer.save_model(self.model, self.discriminator_optimizer, self.main_optimizer, model_filename)
+
+    def load(self, model_filename):
+        state_dict = torch.load(model_filename)
+        self.model.load_state_dict(state_dict['state_dict'])
+        self.discriminator_optimizer.load_state_dict(state_dict['discriminator_optimizer'])
+        self.main_optimizer.load_state_dict(state_dict['main_optimizer'])
 
     def get_one_lang_batches(self, filenames, lang="src", batch_size: int=32, n=None):
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary

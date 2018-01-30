@@ -16,4 +16,4 @@ TGT_CORPUS = "data/corpus.tok.clean.tc." + TGT_LANG
 state = Trainer(SRC_LANG, TGT_LANG, use_cuda=use_cuda)
 state.train([SRC_CORPUS, ], [TGT_CORPUS, ], SRC_EMBEDDINGS, TGT_EMBEDDINGS, SRC_TO_TGT_DICT_FILENAME,
             TGT_TO_SRC_DICT_FILENAME, 3, hidden_size=4, src_max_words=10000, tgt_max_words=10000,
-            load_pretrained_embeddings=False)
+            load_pretrained_embeddings=False, save_every=2)
