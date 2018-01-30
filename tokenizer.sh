@@ -42,4 +42,9 @@ for f in ${OUTPUT_DIR}/*.tok.clean.${langs}; do
   done
 done
 
+prefix=$OUTPUT_DIR/corpus.tok.clean
+for l in ${langs[@]}; do
+  $mosesdecoder/scripts/recaser/truecase.perl -model $prefix-truecase-model.$l < $prefix.$l > $prefix.tc.$l
+done
+
 echo "All done."
