@@ -51,6 +51,8 @@ RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
   make && \
   make py
 
+RUN pip3 install http://download.pytorch.org/whl/cu80/torch-0.3.0.post4-cp36-cp36m-linux_x86_64.whl
+
 WORKDIR /model/
 # OpenNMT-py
 RUN git clone https://github.com/OpenNMT/OpenNMT-py --depth 1 && \
@@ -70,4 +72,4 @@ RUN mkdir /output
 COPY clean-corpus-monolingual.perl /model/
 COPY translate.sh /model/
 
-CMD ["/model/translate.sh"]
+CMD ["/model/translate.sh", "3", "2", "200"]
