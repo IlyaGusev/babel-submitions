@@ -7,7 +7,7 @@ import time
 import numpy as np
 from gensim.models.keyedvectors import KeyedVectors
 
-from utils.batch import OneLangBatch, OneLangBatchGenerator
+from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence
 from src.word_by_word import WordByWordModel
 from src.unmt import UNMT
 from utils.vocabulary import Vocabulary
@@ -133,6 +133,46 @@ class Trainer:
                           big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
             self.save("model-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
+            
+    def translate(self, sentence, lang):
+        batch_size = 1
+        vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
+        translator = self.model.translate_src2tgt if lang == "src" else self.model.translate_tgt2src
+        indices = indices_from_sentence(sentence, vocabulary)
+        variable = Variable(torch.zeros(batch_size, len(indices))).type(torch.LongTensor)
+        indices = Variable(torch.LongTensor(indices))
+        variable[0] = indices
+        for i in range(1, batch_size):
+            variable[i, 0] = vocabulary.get_eos()
+        variable = variable.transpose(0, 1)
+        variable = variable.cuda() if self.use_cuda else variable
+        lengths = [len(indices)]
+        lengths += [1 for _ in range(batch_size - 1)]
+        
+        vocabulary = self.src_vocabulary if lang == "tgt" else self.tgt_vocabulary
+        translated = list(translator(variable, lengths)[:, 0])
+        return " ".join([vocabulary.get_word(i.data[0]) for i in translated 
+                         if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
+    
+    def autoencode_src(self, sentence):
+        batch_size = 1
+        vocabulary = self.src_vocabulary
+        translator = self.model.translate_src_auto
+        indices = indices_from_sentence(sentence, vocabulary)
+        variable = Variable(torch.zeros(batch_size, len(indices))).type(torch.LongTensor)
+        indices = Variable(torch.LongTensor(indices))
+        variable[0] = indices
+        for i in range(1, batch_size):
+            variable[i, 0] = vocabulary.get_eos()
+        variable = variable.transpose(0, 1)
+        variable = variable.cuda() if self.use_cuda else variable
+        lengths = [len(indices)]
+        lengths += [1 for _ in range(batch_size - 1)]
+        
+        vocabulary = self.src_vocabulary
+        translated = list(translator(variable, lengths)[:, 0])
+        return " ".join([vocabulary.get_word(i.data[0]) for i in translated 
+                         if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
 
     @staticmethod
     def save_model(module, discriminator_optimizer, main_optimizer, filename):
