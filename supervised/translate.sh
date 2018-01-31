@@ -48,8 +48,8 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.$tgt < /model/full.$tgt > /model/full.tc.$tgt
 
 # Run FastText
-fasttext skipgram -input /model/full.tc.$src -minCount 1 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
-fasttext skipgram -input /model/full.tc.$tgt -minCount 1 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
+fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
+fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 
 # Train-Validation split
 lines=`wc -l < /model/parallel.tok.clean.tc.$src`
