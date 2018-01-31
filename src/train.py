@@ -129,11 +129,10 @@ class Trainer:
                     diff = time.time() - timer
                     timer = time.time()
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
-                          (
-                          big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
+                          (big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
             self.save("model-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
-            
+
     def translate(self, sentence, lang):
         batch_size = 1
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
@@ -148,12 +147,12 @@ class Trainer:
         variable = variable.cuda() if self.use_cuda else variable
         lengths = [len(indices)]
         lengths += [1 for _ in range(batch_size - 1)]
-        
+
         vocabulary = self.src_vocabulary if lang == "tgt" else self.tgt_vocabulary
         translated = list(translator(variable, lengths)[:, 0])
-        return " ".join([vocabulary.get_word(i.data[0]) for i in translated 
+        return " ".join([vocabulary.get_word(i.data[0]) for i in translated
                          if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
-    
+
     def autoencode_src(self, sentence):
         batch_size = 1
         vocabulary = self.src_vocabulary
@@ -168,10 +167,10 @@ class Trainer:
         variable = variable.cuda() if self.use_cuda else variable
         lengths = [len(indices)]
         lengths += [1 for _ in range(batch_size - 1)]
-        
+
         vocabulary = self.src_vocabulary
         translated = list(translator(variable, lengths)[:, 0])
-        return " ".join([vocabulary.get_word(i.data[0]) for i in translated 
+        return " ".join([vocabulary.get_word(i.data[0]) for i in translated
                          if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
 
     @staticmethod
@@ -288,11 +287,13 @@ class Trainer:
     def get_permutated_batch(variable, lengths, permutation):
         batch_size = variable.size(1)
         new_old_variable = Variable(torch.zeros(variable.size(0), variable.size(1)).type(torch.LongTensor))
-        new_length = []
+        new_lengths = []
         for b in range(batch_size):
             new_old_variable[:, b] = variable[:, permutation[b]]
-            new_length.append(lengths[permutation[b]])
-        return OneLangBatch(new_old_variable, new_length)
+            new_lengths.append(lengths[permutation[b]])
+        max_length = max(new_lengths)
+        new_old_variable = new_old_variable[:max_length, :]
+        return OneLangBatch(new_old_variable, new_lengths)
 
     @staticmethod
     def prepare_noisy_variable(variable: Variable, drop_probability=0.1, shuffle_max_distance=3):
