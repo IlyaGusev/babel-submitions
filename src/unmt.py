@@ -88,39 +88,55 @@ class UNMT(nn.Module):
     def forward(self, src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_,
                 src_translated_noisy_batch, tgt_translated_noisy_batch, src_batch__, tgt_batch__,
                 batch_size, src_criterion, tgt_criterion, src_vocabulary, tgt_vocabulary):
+        adv_ones_variable = Variable(torch.add(torch.ones((batch_size,)), -0.1), requires_grad=False)
+        adv_ones_variable = adv_ones_variable.cuda() if self.use_cuda else adv_ones_variable
+        adv_zeros_variable = Variable(torch.add(torch.zeros((batch_size,)), 0.1), requires_grad=False)
+        adv_zeros_variable = adv_zeros_variable.cuda() if self.use_cuda else adv_zeros_variable
+
         src_adv_loss, src_auto_loss = \
-            self.auto_encoder_decoder_run(self.src_encoder, self.src_decoder, self.src_generator, src_criterion,
-                                          src_noisy_batch.variable, src_noisy_batch.lengths,
-                                          src_batch_.variable, src_batch_.lengths, batch_size, lang="src")
+            self.encoder_decoder_run(self.src_encoder, self.src_decoder, self.src_generator, src_criterion,
+                                     src_noisy_batch.variable, src_noisy_batch.lengths,
+                                     src_batch_.variable, src_batch_.lengths, batch_size, adv_ones_variable)
 
         tgt_adv_loss, tgt_auto_loss = \
-            self.auto_encoder_decoder_run(self.tgt_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
-                                          tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
-                                          tgt_batch_.variable, tgt_batch_.lengths, batch_size, lang="tgt")
+            self.encoder_decoder_run(self.tgt_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
+                                     tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
+                                     tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable)
 
         cd_src_adv_loss, cd_src_cd_loss = \
-            self.cd_encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
-                                        src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
-                                        src_batch__.variable, src_batch__.lengths, batch_size, lang="src")
+            self.encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
+                                     src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
+                                     src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
 
         cd_tgt_adv_loss, cd_tgt_cd_loss = \
-            self.cd_encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
-                                        tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
-                                        tgt_batch__.variable, tgt_batch__.lengths, batch_size, lang="tgt")
+            self.encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
+                                     tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
+                                     tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
 
-        # print("Losses:", [src_adv_loss.data[0], tgt_adv_loss.data[0], cd_tgt_adv_loss.data[0], cd_src_adv_loss.data[0],
-        #                   src_auto_loss.data[0], tgt_auto_loss.data[0], cd_tgt_cd_loss.data[0], cd_src_cd_loss.data[0]])
         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
-    def translate_src2tgt(self, variable, lengths):
-        return self.translate(variable, self.src_encoder, self.tgt_decoder, self.tgt_generator, lengths)
+    def encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
+                            gt_variable, gt_lengths, batch_size, adv_variable):
+        encoder_output, encoder_hidden = encoder(variable, lengths, None)
 
-    def translate_src_auto(self, variable, lengths):
-        return self.translate(variable, self.src_encoder, self.src_decoder, self.src_generator, lengths)
+        adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
 
-    def translate_tgt2src(self, variable, lengths):
-        return self.translate(variable, self.tgt_encoder, self.src_decoder, self.src_generator, lengths)
+        main_loss = 0
+        initial_input = decoder.init_state(batch_size)
+        decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
+        max_length = max(gt_lengths)
+        for t in range(max_length):
+            scores = generator(decoder_output[t])
+            main_loss += criterion(scores, gt_variable[t])
+        return adv_loss, main_loss
+
+    def get_discriminator_loss(self, encoder_output, target_variable):
+        adv_criterion = nn.BCELoss()
+        log_prob = self.discriminator(encoder_output)
+        log_prob = log_prob.view(-1)
+        adv_loss = adv_criterion(log_prob, target_variable)
+        return adv_loss
 
     def translate(self, variable, encoder, decoder, generator, lengths):
         self.eval()
@@ -139,52 +155,11 @@ class UNMT(nn.Module):
         output_variable = output_variable.detach()
         return output_variable
 
-    def auto_encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
-                                 gt_variable, gt_lengths, batch_size, lang="src"):
+    def translate_src2tgt(self, variable, lengths):
+        return self.translate(variable, self.src_encoder, self.tgt_decoder, self.tgt_generator, lengths)
 
-        encoder_output, encoder_hidden = encoder(variable, lengths, None)
+    def translate_src_auto(self, variable, lengths):
+        return self.translate(variable, self.src_encoder, self.src_decoder, self.src_generator, lengths)
 
-        # Adversarial part
-        target_tensor = torch.add(torch.ones((batch_size,)), -0.1) if lang == "src" \
-            else torch.add(torch.zeros((batch_size,)), 0.1)
-        target_variable = Variable(target_tensor, requires_grad=False)
-        target_variable = target_variable.cuda() if self.use_cuda else target_variable
-        adv_loss = self.get_discriminator_loss(encoder_output, target_variable)
-
-        # Auto part
-        auto_loss = 0
-        initial_input = decoder.init_state(batch_size)
-        decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
-        max_length = max(lengths)
-        for t in range(max_length):
-            scores = generator(decoder_output[t])
-            auto_loss += criterion(scores, gt_variable[t])
-        return adv_loss, auto_loss
-
-    def cd_encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
-                               gt_variable, gt_lengths, batch_size, lang="src"):
-        encoder_output, encoder_hidden = encoder(variable, lengths, None)
-
-        # Adversarial part
-        target_tensor = torch.add(torch.ones((batch_size,)), -0.1) if lang == "tgt" \
-            else torch.add(torch.zeros((batch_size,)), 0.1)
-        target_variable = Variable(target_tensor, requires_grad=False)
-        target_variable = target_variable.cuda() if self.use_cuda else target_variable
-        adv_loss = self.get_discriminator_loss(encoder_output, target_variable)
-
-        # Cross-domain part
-        cd_loss = 0
-        initial_input = decoder.init_state(batch_size)
-        decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
-        max_length = max(gt_lengths)
-        for t in range(max_length):
-            scores = generator(decoder_output[t])
-            cd_loss += criterion(scores, gt_variable[t])
-        return adv_loss, cd_loss
-
-    def get_discriminator_loss(self, encoder_output, target_variable):
-        adv_criterion = nn.BCELoss()
-        log_prob = self.discriminator(encoder_output)
-        log_prob = log_prob.view(-1)
-        adv_loss = adv_criterion(log_prob, target_variable)
-        return adv_loss
+    def translate_tgt2src(self, variable, lengths):
+        return self.translate(variable, self.tgt_encoder, self.src_decoder, self.src_generator, lengths)
