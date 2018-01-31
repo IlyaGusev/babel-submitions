@@ -173,7 +173,7 @@ class AttnDecoderRNN(nn.Module):
 
         if one_step:
             context, hidden, _ = self.step(current_input, hidden, encoder_outputs, context)
-            return context, hidden
+            return context, hidden, None
 
         max_input_length = max(input_lengths) + 1
 

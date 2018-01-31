@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from src.models import EncoderRNN, Generator, DecoderRNN
+from src.models import EncoderRNN, Generator, DecoderRNN, AttnDecoderRNN
 
 
 class Discriminator(nn.Module):
@@ -55,10 +55,10 @@ class UNMT(nn.Module):
                                       n_layers=encoder_n_layers)
         self.tgt_encoder = EncoderRNN(self.tgt_size, embedding_dim, hidden_size, dropout=dropout,
                                       n_layers=encoder_n_layers)
-        self.src_decoder = DecoderRNN(embedding_dim, hidden_size, self.src_size, dropout=dropout,
-                                      max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
-        self.tgt_decoder = DecoderRNN(embedding_dim, hidden_size, self.tgt_size, dropout=dropout,
-                                      max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
+        self.src_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.src_size, dropout=dropout,
+                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
+        self.tgt_decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.tgt_size, dropout=dropout,
+                                          max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
         self.src_generator = Generator(hidden_size, self.src_size)
         self.tgt_generator = Generator(hidden_size, self.tgt_size)
         self.discriminator = Discriminator(self.max_length, self.hidden_size)
@@ -85,7 +85,7 @@ class UNMT(nn.Module):
             self.src_decoder.embedding.weight.requires_grad = False
             self.tgt_decoder.embedding.weight.requires_grad = False
 
-    def forward(self, src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_,
+    def forward(self, src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_,
                 src_translated_noisy_batch, tgt_translated_noisy_batch, src_batch__, tgt_batch__,
                 batch_size, src_criterion, tgt_criterion, src_vocabulary, tgt_vocabulary):
         adv_ones_variable = Variable(torch.add(torch.ones((batch_size,)), -0.1), requires_grad=False)
@@ -102,19 +102,20 @@ class UNMT(nn.Module):
             self.encoder_decoder_run(self.tgt_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
                                      tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
                                      tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable)
+        return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss])
 
-        cd_src_adv_loss, cd_src_cd_loss = \
-            self.encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
-                                     src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
-                                     src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
+#         cd_src_adv_loss, cd_src_cd_loss = \
+#             self.encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
+#                                      src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
+#                                      src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
 
-        cd_tgt_adv_loss, cd_tgt_cd_loss = \
-            self.encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
-                                     tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
-                                     tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
+#         cd_tgt_adv_loss, cd_tgt_cd_loss = \
+#             self.encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
+#                                      tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
+#                                      tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
 
-        return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
-                    cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
+#         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
+#                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
     def encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
                             gt_variable, gt_lengths, batch_size, adv_variable):
@@ -123,8 +124,10 @@ class UNMT(nn.Module):
         adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
 
         main_loss = 0
-        initial_input = decoder.init_state(batch_size)
-        decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
+#         initial_input = decoder.init_state(batch_size)
+        initial_input, initial_context = decoder.init_state(batch_size)
+#         decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
+        decoder_output, _, _ = decoder(gt_variable, gt_lengths, encoder_hidden, encoder_output, initial_input, initial_context)
         max_length = max(gt_lengths)
         for t in range(max_length):
             scores = generator(decoder_output[t])
@@ -145,9 +148,13 @@ class UNMT(nn.Module):
         output_variable = output_variable.cuda() if self.use_cuda else output_variable
 
         encoder_output, hidden = encoder(variable, lengths, None)
-        current_input = decoder.init_state(batch_size)
+#         current_input = decoder.init_state(batch_size)
+        current_input, context = decoder.init_state(batch_size)
         for t in range(self.max_length):
-            output, hidden = decoder(None, None, hidden, current_input, one_step=True)
+#             output, hidden = decoder(None, None, hidden, current_input, one_step=True)
+            output, hidden, _ = decoder(None, None, hidden, encoder_output, current_input, context, one_step=True)
+            context = output
+        
             scores = generator(output.squeeze(0))
             top_indices = scores.topk(1, dim=1)[1].view(-1)
             output_variable[t] = top_indices
@@ -163,3 +170,6 @@ class UNMT(nn.Module):
 
     def translate_tgt2src(self, variable, lengths):
         return self.translate(variable, self.tgt_encoder, self.src_decoder, self.src_generator, lengths)
+    
+    def translate_tgt_auto(self, variable, lengths):
+        return self.translate(variable, self.tgt_encoder, self.tgt_decoder, self.tgt_generator, lengths)

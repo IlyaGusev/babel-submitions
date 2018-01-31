@@ -128,13 +128,16 @@ class Trainer:
                     print_discriminator_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
+                    print(self.autoencode("you can prepare your meals here .", lang="src"))
+                    print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
+                    print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
                           (big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
             self.save("model-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
 
     def translate(self, sentence, lang):
-        batch_size = 1
+        batch_size = 2
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         translator = self.model.translate_src2tgt if lang == "src" else self.model.translate_tgt2src
         indices = indices_from_sentence(sentence, vocabulary)
@@ -153,10 +156,11 @@ class Trainer:
         return " ".join([vocabulary.get_word(i.data[0]) for i in translated
                          if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
 
-    def autoencode_src(self, sentence):
-        batch_size = 1
-        vocabulary = self.src_vocabulary
-        translator = self.model.translate_src_auto
+    def autoencode(self, sentence, lang):
+        batch_size = 2
+        vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
+        translator = self.model.translate_src_auto if lang == "src" else self.model.translate_tgt_auto
+        
         indices = indices_from_sentence(sentence, vocabulary)
         variable = Variable(torch.zeros(batch_size, len(indices))).type(torch.LongTensor)
         indices = Variable(torch.LongTensor(indices))
@@ -168,7 +172,7 @@ class Trainer:
         lengths = [len(indices)]
         lengths += [1 for _ in range(batch_size - 1)]
 
-        vocabulary = self.src_vocabulary
+        vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         translated = list(translator(variable, lengths)[:, 0])
         return " ".join([vocabulary.get_word(i.data[0]) for i in translated
                          if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
@@ -228,8 +232,9 @@ class Trainer:
 
         # Main step
         self.main_optimizer.zero_grad()
-        loss = self.model(src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_, src_translated_noisy_batch,
-                          tgt_translated_noisy_batch, src_batch__, tgt_batch__, batch_size, self.src_criterion,
+        loss = self.model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_batch_, 
+                          tgt_batch_, src_translated_noisy_batch, tgt_translated_noisy_batch, 
+                          src_batch__, tgt_batch__, batch_size, self.src_criterion,
                           self.tgt_criterion, self.src_vocabulary, self.tgt_vocabulary)
         loss.backward()
         nn.utils.clip_grad_norm(self.model.parameters(), 5)
