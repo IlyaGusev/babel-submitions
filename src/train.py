@@ -78,12 +78,10 @@ class Trainer:
         self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
                                                          self.src_vocabulary, self.tgt_vocabulary)
 
-    def train(self, src_filenames, tgt_filenames, src_embeddings_filename,
-              tgt_embeddings_filename, src_to_tgt_dict_filename, tgt_to_src_dict_filename,
-              big_epochs: int, print_every=1000, save_every=1000, hidden_size=200, n_layers=3, batch_size: int=32,
-              src_max_words=80000, tgt_max_words=100000, load_pretrained_embeddings=True, discriminator_lr=0.0005,
-              main_lr=0.0003, main_betas=(0.5, 0.999), n_batches=None):
-
+    def init_model(self, src_filenames, tgt_filenames, src_embeddings_filename, tgt_embeddings_filename,
+                   src_to_tgt_dict_filename, tgt_to_src_dict_filename, src_max_words=80000, tgt_max_words=100000,
+                   load_pretrained_embeddings=True, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
+                   main_lr=0.0003, main_betas=(0.5, 0.999)):
         self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
                                   src_max_words=src_max_words, tgt_max_words=tgt_max_words)
         self.build_model(hidden_size=hidden_size, n_layers=n_layers)
@@ -92,26 +90,29 @@ class Trainer:
                                  tgt_embeddings_filename=tgt_embeddings_filename,
                                  enable_training=False)
         self.model = self.model.cuda() if self.use_cuda else self.model
-        self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
-                                      tgt_to_src_dict_filename=tgt_to_src_dict_filename)
-
         self.discriminator_optimizer = optim.RMSprop(self.model.discriminator.parameters(), lr=discriminator_lr)
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                          lr=main_lr, betas=main_betas)
 
-        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
-        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
-
+        self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
+                                      tgt_to_src_dict_filename=tgt_to_src_dict_filename)
         print(self.model)
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         print("Params: ", params)
+
+    def train(self, src_filenames, tgt_filenames, big_epochs: int, print_every=1000, save_every=1000,
+              batch_size: int = 32, n_batches=None):
+        src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
+        tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
+        count_batches = min(len(src_batches), len(tgt_batches))
 
         for big_epoch in range(big_epochs):
             timer = time.time()
             print_main_loss_total = 0
             print_discriminator_loss_total = 0
             for epoch, (src_batch, tgt_batch) in enumerate(zip(src_batches, tgt_batches)):
+                self.model.train()
                 discriminator_loss, main_loss = self.train_batch(src_batch, tgt_batch)
                 # print("Discriminator loss: ", discriminator_loss)
                 # print("Main loss: ", main_loss)
@@ -127,9 +128,11 @@ class Trainer:
                     print_discriminator_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
-                    print('%s big epoch, %s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
-                          (big_epoch, epoch, diff, print_main_loss_avg, print_discriminator_loss_avg))
-            self.current_translation_model = self.model
+                    print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
+                          (
+                          big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
+            self.save("model-" + str(big_epoch) + ".pt")
+            # self.current_translation_model = self.model
 
     @staticmethod
     def save_model(module, discriminator_optimizer, main_optimizer, filename):
@@ -170,11 +173,15 @@ class Trainer:
 
         discriminator_loss = self.discriminator_step(src_batch, tgt_batch)
 
-        src_noisy_batch = self.prepare_noisy_input(src_batch)
-        tgt_noisy_batch = self.prepare_noisy_input(tgt_batch)
-        src_translated_noisy_batch = self.prepare_translated_noisy_input(src_batch, lang="src")
-        tgt_translated_noisy_batch = self.prepare_translated_noisy_input(tgt_batch, lang="tgt")
+        src_noisy_batch, src_batch_ = self.prepare_noisy_input(src_batch)
+        tgt_noisy_batch, tgt_batch_ = self.prepare_noisy_input(tgt_batch)
+        src_translated_noisy_batch,  src_batch__ = self.prepare_translated_noisy_input(src_batch, lang="src")
+        tgt_translated_noisy_batch,  tgt_batch__ = self.prepare_translated_noisy_input(tgt_batch, lang="tgt")
 
+        src_batch_ = src_batch_.cuda() if self.use_cuda else src_batch_
+        tgt_batch_ = tgt_batch_.cuda() if self.use_cuda else tgt_batch_
+        src_batch__ = src_batch__.cuda() if self.use_cuda else src_batch__
+        tgt_batch__ = tgt_batch__.cuda() if self.use_cuda else tgt_batch__
         src_noisy_batch = src_noisy_batch.cuda() if self.use_cuda else src_noisy_batch
         tgt_noisy_batch = tgt_noisy_batch.cuda() if self.use_cuda else tgt_noisy_batch
         src_translated_noisy_batch = src_translated_noisy_batch.cuda() if self.use_cuda else src_translated_noisy_batch
@@ -182,9 +189,9 @@ class Trainer:
 
         # Main step
         self.main_optimizer.zero_grad()
-        loss = self.model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_translated_noisy_batch,
-                          tgt_translated_noisy_batch, batch_size, self.src_criterion, self.tgt_criterion,
-                          self.src_vocabulary, self.tgt_vocabulary)
+        loss = self.model(src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_, src_translated_noisy_batch,
+                          tgt_translated_noisy_batch, src_batch__, tgt_batch__, batch_size, self.src_criterion,
+                          self.tgt_criterion, self.src_vocabulary, self.tgt_vocabulary)
         loss.backward()
         nn.utils.clip_grad_norm(self.model.parameters(), 5)
         self.main_optimizer.step()
@@ -219,46 +226,72 @@ class Trainer:
         log_prob = self.model.discriminator(encoder_output).view(-1)
         return adv_criterion(log_prob, target_variable)
 
-    def prepare_noisy_input(self, batch: OneLangBatch):
-        new_variable, new_lengths = self.prepare_noisy_variable(batch.variable)
-        return OneLangBatch(new_variable, new_lengths)
-
     def prepare_translated_noisy_input(self, batch: OneLangBatch, lang: str):
         translation = self.current_translation_model.translate_src2tgt if lang == "src" else \
             self.current_translation_model.translate_tgt2src
-        new_variable, _ = self.prepare_translated_variable(translation, batch.variable)
-        new_variable, new_lengths = self.prepare_noisy_variable(new_variable)
-        return OneLangBatch(new_variable, new_lengths)
 
-    def prepare_noisy_variable(self, variable: Variable):
+        new_variable, _ = self.prepare_translated_variable(translation, batch.variable)
+        new_variable, new_lengths, permutation = self.prepare_noisy_variable(new_variable)
+
+        new_old_batch = Trainer.get_permutated_batch(batch.variable, batch.lengths, permutation)
+        return OneLangBatch(new_variable, new_lengths), new_old_batch
+
+    @staticmethod
+    def prepare_noisy_input(batch: OneLangBatch, drop_probability=0.1, shuffle_max_distance=3):
+        new_variable, new_lengths, permutation = \
+            Trainer.prepare_noisy_variable(batch.variable, drop_probability=drop_probability,
+                                           shuffle_max_distance=shuffle_max_distance)
+        new_old_batch = Trainer.get_permutated_batch(batch.variable, batch.lengths, permutation)
+        return OneLangBatch(new_variable, new_lengths), new_old_batch
+
+    @staticmethod
+    def get_permutated_batch(variable, lengths, permutation):
+        batch_size = variable.size(1)
+        new_old_variable = Variable(torch.zeros(variable.size(0), variable.size(1)).type(torch.LongTensor))
+        new_length = []
+        for b in range(batch_size):
+            new_old_variable[:, b] = variable[:, permutation[b]]
+            new_length.append(lengths[permutation[b]])
+        return OneLangBatch(new_old_variable, new_length)
+
+    @staticmethod
+    def prepare_noisy_variable(variable: Variable, drop_probability=0.1, shuffle_max_distance=3):
         batch_size = variable.size(1)
         max_length = variable.size(0)
         variable = variable.transpose(0, 1)
         new_sentences = []
         for b in range(batch_size):
             indices = [elem for elem in variable[b].data if elem != 0][:-1]
-            noisy = self.add_noise(indices) + [2, ]
+            noisy = Trainer.add_noise(indices, drop_probability=drop_probability,
+                                      shuffle_max_distance=shuffle_max_distance) + [2, ]
             noisy = noisy + [0 for _ in range(max_length - len(noisy))]
-            new_sentences.append(noisy)
-        new_sentences = sorted(new_sentences, key=lambda p: len(p), reverse=True)
+            new_sentences.append((b, noisy))
+        new_sentences = sorted(new_sentences, key=lambda p: len([i for i in p[1] if i != 0]), reverse=True)
+        permutation = [original_index for original_index, _ in new_sentences]
+        new_sentences = [sentence for _, sentence in new_sentences]
 
         new_varibale = Variable(torch.zeros(batch_size, max_length)).type(torch.LongTensor)
         new_lengths = []
-        for sentence in new_sentences:
+        for b, sentence in enumerate(new_sentences):
             new_varibale[b] = torch.LongTensor(sentence)
-            new_lengths.append(len(sentence))
-        return new_varibale.transpose(0, 1), new_lengths
+            new_lengths.append(len([i for i in sentence if i != 0]))
+        return new_varibale.transpose(0, 1), new_lengths, permutation
 
     @staticmethod
     def prepare_translated_variable(translation, variable: Variable):
-        batch_size = variable.size(1)
-        lengths = [len(variable[:, b].data) for b in range(batch_size)]
-        # print("Input: ", list(variable[:, 0].data))
-        translated = translation(variable=variable, lengths=list(lengths))
+        def get_lengths(var):
+            batch_size = var.size(1)
+            sentences = [[index for index in var[:, b].data if index != 0] for b in range(batch_size)]
+            return [len(sentence) for sentence in sentences]
+
+        translated = translation(variable=variable, lengths=get_lengths(variable))
         translated.transpose(0, 1)
-        lengths = [len(translated[:, b].data) for b in range(batch_size)]
-        # print("Translated: ", list(translated[:, 0].data))
-        return translated, lengths
+
+        lengths = get_lengths(translated)
+        max_length = max(lengths)
+        new_translated = translated[:max_length, :]
+
+        return new_translated, lengths
 
     @staticmethod
     def add_noise(sequence, drop_probability=0.1, shuffle_max_distance=3):
