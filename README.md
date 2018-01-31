@@ -11,3 +11,8 @@ Two steps should be performed to prepare data:
 
 + run the `download_data.sh` to get the train data
 + execute the `tokenizer.sh` to clean up the data for training
+
+## Result
+| #  | Score   | Description     | Image                    |
+|----|---------|-----------------|--------------------------|
+| 1  | 0.03778 | `baseline`      | ashmat98/baseline        |
