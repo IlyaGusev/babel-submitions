@@ -261,11 +261,10 @@ class Trainer:
         variable = variable.transpose(0, 1)
         new_sentences = []
         for b in range(batch_size):
-            indices = [elem for elem in variable[b].data if elem != 0][:-1]
-            noisy = Trainer.add_noise(indices, drop_probability=drop_probability,
-                                      shuffle_max_distance=shuffle_max_distance) + [2, ]
-            noisy = noisy + [0 for _ in range(max_length - len(noisy))]
-            new_sentences.append((b, noisy))
+            noisy = Trainer.add_noise(variable[b].data.cpu().numpy(),
+                                      drop_probability=drop_probability, shuffle_max_distance=shuffle_max_distance)
+            noisy = noisy + [0] * (max_length - len(noisy))
+            new_sentences.append((b, np.array(noisy)))
         new_sentences = sorted(new_sentences, key=lambda p: len([i for i in p[1] if i != 0]), reverse=True)
         permutation = [original_index for original_index, _ in new_sentences]
         new_sentences = [sentence for _, sentence in new_sentences]
@@ -295,7 +294,12 @@ class Trainer:
 
     @staticmethod
     def add_noise(sequence, drop_probability=0.1, shuffle_max_distance=3):
-        new_sequence = [elem for elem in sequence if np.random.random_sample() > drop_probability]
-        new_sequence = [x for i, x in sorted(enumerate(new_sequence),
-                                             key=lambda x: x[0] + (shuffle_max_distance + 1) * np.random.random())]
-        return new_sequence
+        sequence = sequence[sequence > 0]
+        sequence = sequence[:-1]
+        sequence = sequence[np.random.random_sample(len(sequence)) > drop_probability]
+
+        def perm(i):
+            return i[0] + (shuffle_max_distance + 1) * np.random.random()
+        sequence = [x for _, x in sorted(enumerate(sequence), key=perm)]
+        sequence.append(2)
+        return sequence

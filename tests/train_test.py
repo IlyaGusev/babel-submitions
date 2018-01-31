@@ -53,6 +53,11 @@ class TestTrainer(unittest.TestCase):
                                                                          drop_probability=0.2)
         np.testing.assert_equal(np.any(np.not_equal(batch.numpy(), new_old_batch.variable.data)), True)
 
+    def test_add_noise(self):
+        res = src.train.Trainer.add_noise(np.array([997, 51540, 3, 2770, 3, 267, 42681, 2]))
+        assert res[-1] == 2
+        assert len(res) > 0
+
 
 if __name__ == '__main__':
     unittest.main()
