@@ -51,15 +51,23 @@ RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
   make && \
   make py
 
+WORKDIR /model/
 # OpenNMT-py
 RUN git clone https://github.com/OpenNMT/OpenNMT-py --depth 1 && \
   cd OpenNMT-py && \
   pip3 install -r requirements.txt && \
   python3 setup.py install
 
+WORKDIR /model/
+# Moses
+RUN git clone https://github.com/moses-smt/mosesdecoder.git --depth 1
+
 # playground will contain user defined scripts, it should be run as:
 # docker run -v `pwd`:/data -it basel-baseline
 RUN mkdir /data
 RUN mkdir /output
+
+COPY clean-corpus-monolingual.perl /model/
+COPY translate.sh /model/
 
 CMD ["/model/translate.sh"]
