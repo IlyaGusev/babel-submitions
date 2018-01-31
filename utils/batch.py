@@ -11,10 +11,10 @@ class Batch:
         self.tgt_variable = tgt_variable
         self.src_lengths = src_lengths
         self.tgt_lengths = tgt_lengths
-        
+
     def cuda(self):
         return Batch(self.src_variable.cuda(), self.tgt_variable.cuda(), self.src_lengths, self.tgt_lengths)
-    
+
     def __str__(self):
         return "Batch: " + str(self.src_variable) + ", " + str(self.tgt_variable) + ", " + str(self.src_lengths) + ", " + str(self.tgt_lengths)
 
@@ -23,12 +23,15 @@ class OneLangBatch:
     def __init__(self, variable, lengths):
         self.variable = variable
         self.lengths = lengths
-        
+
     def cuda(self):
         return OneLangBatch(self.variable.cuda(), self.lengths)
-    
+
     def __str__(self):
         return "OneLangBatch: " + str(self.variable) + ", " + str(self.lengths)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def indices_from_sentence(sentence: str, vocabulary: Vocabulary):
@@ -61,7 +64,7 @@ class BatchGenerator:
 
                     input_sentence = indices_from_sentence(input_sentence, self.input_vocabulary)
                     output_sentence = indices_from_sentence(output_sentence, self.output_vocabulary)
-                    
+
                     if len(input_sentence) >= self.max_sentence_len - 1 or len(output_sentence) >= self.max_sentence_len - 1:
                         continue
 
@@ -93,14 +96,14 @@ class BatchGenerator:
         input_variable = Variable(torch.LongTensor(input_padded), requires_grad=False).transpose(0, 1)
         output_variable = Variable(torch.LongTensor(output_padded), requires_grad=False).transpose(0, 1)
         return input_variable, output_variable
-    
+
 class OneLangBatchGenerator:
     def __init__(self, filenames: List[str], batch_size: int, max_sentence_len: int, vocabulary: Vocabulary):
         self.filenames = filenames  # type: List[str, str]
         self.batch_size = batch_size  # type: int
         self.max_sentence_len = max_sentence_len  # type: int
         self.vocabulary = vocabulary
-        
+
     def __iter__(self):
         for filename in self.filenames:
             seqs = []
