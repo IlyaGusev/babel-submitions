@@ -25,13 +25,13 @@ class Vocabulary:
         return self.index2word.index("<unk>")
 
     def get_lang_sos(self, lang):
-        return self.index2word.index(lang + "-</b>")
+        return self.word2index[lang + "-</b>"]
 
     def get_lang_eos(self, lang):
-        return self.index2word.index(lang+"-</s>")
+        return self.word2index[lang + "-</s>"]
 
     def get_lang_unk(self, lang):
-        return self.index2word.index(lang+"-<unk>")
+        return self.word2index[lang + "-<unk>"]
 
     def add_sentence(self, sentence):
         for word in sentence.split(' '):
