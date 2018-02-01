@@ -44,7 +44,7 @@ RUN git clone https://github.com/moses-smt/mosesdecoder.git --depth 1
 
 # MUSE
 WORKDIR /model/
-RUN git clone https://github.com/facebookresearch/MUSE.git --depth 1
+RUN git clone https://github.com/aoboturov/MUSE.git --depth 1
 
 # FAISS
 WORKDIR /model/
@@ -56,9 +56,19 @@ RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
   mv /model/makefile.inc /model/faiss/makefile.inc && \
   make && \
   make py && \
+  cp libfaiss.a /usr/lib/ && \
   cd gpu && \
   make && \
-  make py
+  make py && \
+  cp libgpufaiss.a /usr/lib/ && \
+  cd .. && \
+  cp faiss.py /model && \
+  cp swigfaiss.py /model && \
+  cp swigfaiss_gpu.py /model && \
+  cp _swigfaiss.so /model && \
+  cp _swigfaiss_gpu.so /model
+
+ENV PYTHONPATH /model
 
 # playground will contain user defined scripts, it should be run as:
 # docker run -v `pwd`:/data -it basel-baseline
