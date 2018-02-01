@@ -123,7 +123,7 @@ class Trainer:
                 print_main_loss_total += main_loss
                 print_discriminator_loss_total += discriminator_loss
                 if epoch % save_every == 0 and epoch != 0:
-                    self.save("model.pt")
+                    self.save(save_file+".pt")
                 if epoch % print_every == 0 and epoch != 0:
                     print_main_loss_avg = print_main_loss_total / print_every
                     print_discriminator_loss_avg = print_discriminator_loss_total / print_every
@@ -156,7 +156,7 @@ class Trainer:
 
                 print_loss_total += loss
                 if epoch % save_every == 0 and epoch != 0:
-                    self.save("model_supervised.pt")
+                    self.save(save_file+"_supervised.pt")
                 if epoch % print_every == 0 and epoch != 0:
                     print_loss_avg = print_loss_total / print_every
                     print_loss_total = 0
