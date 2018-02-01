@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from src.models import EncoderRNN, Generator, AttnDecoderRNN
 from torch.autograd import Variable
-from src.models import EncoderRNN, Generator, DecoderRNN, AttnDecoderRNN
 
 
 class Discriminator(nn.Module):

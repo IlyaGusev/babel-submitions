@@ -1,20 +1,19 @@
+import time
+
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-from torch import optim
-
-import time
-import numpy as np
 from gensim.models.keyedvectors import KeyedVectors
-
+from src.batch_transformer import BatchTransformer
+from src.models import EncoderRNN
+from src.unmt import UNMT
+from src.word_by_word import WordByWordModel
+from torch import optim
+from torch.autograd import Variable
 from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence, \
     BilingualBatch, BilingualBatchGenerator
-from src.word_by_word import WordByWordModel
-from src.unmt import UNMT
-from utils.vocabulary import Vocabulary
 from utils.tqdm import tqdm_open
-from src.models import EncoderRNN
-from src.batch_transformer import BatchTransformer
+from utils.vocabulary import Vocabulary
 
 
 class Trainer:

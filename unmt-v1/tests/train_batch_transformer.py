@@ -2,9 +2,8 @@ import unittest
 
 import numpy as np
 import torch
-from torch.autograd import Variable
-
 from src.batch_transformer import BatchTransformer
+from torch.autograd import Variable
 from utils.batch import OneLangBatch
 
 

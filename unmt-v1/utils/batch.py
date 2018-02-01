@@ -1,8 +1,9 @@
-from utils.vocabulary import Vocabulary
 from typing import List, Tuple
-from utils.tqdm import tqdm_open
+
 import torch
 from torch.autograd import Variable
+from utils.tqdm import tqdm_open
+from utils.vocabulary import Vocabulary
 
 
 class OneLangBatch:
