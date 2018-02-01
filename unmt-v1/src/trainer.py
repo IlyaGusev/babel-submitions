@@ -123,7 +123,7 @@ class Trainer:
                 print_main_loss_total += main_loss
                 print_discriminator_loss_total += discriminator_loss
                 if epoch % save_every == 0 and epoch != 0:
-                    self.save("model.pt")
+                    self.save(save_file+".pt")
                 if epoch % print_every == 0 and epoch != 0:
                     print_main_loss_avg = print_main_loss_total / print_every
                     print_discriminator_loss_avg = print_discriminator_loss_total / print_every
@@ -136,7 +136,7 @@ class Trainer:
                     print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
                           (big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
-            self.save(save_file+"-" + str(big_epoch) + ".pt")
+            # self.save(save_file+"-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
 
     def train_supervised(self, pair_filenames, big_epochs: int, print_every=1000, save_every=1000,
@@ -156,7 +156,7 @@ class Trainer:
 
                 print_loss_total += loss
                 if epoch % save_every == 0 and epoch != 0:
-                    self.save("model_supervised.pt")
+                    self.save(save_file+"_supervised.pt")
                 if epoch % print_every == 0 and epoch != 0:
                     print_loss_avg = print_loss_total / print_every
                     print_loss_total = 0
@@ -167,7 +167,7 @@ class Trainer:
                     print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss' %
                           (big_epoch, epoch, count_batches, diff, print_loss_avg))
-            self.save(save_file+"-supervised-" + str(big_epoch) + ".pt")
+            # self.save(save_file+"-supervised-" + str(big_epoch) + ".pt")
 
     def get_one_lang_batches(self, filenames, lang, batch_size: int=32, n=None):
         batch_generator = OneLangBatchGenerator(filenames, batch_size, self.max_length, self.all_vocabulary, lang)
