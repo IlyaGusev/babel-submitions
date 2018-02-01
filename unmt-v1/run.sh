@@ -1,3 +1,3 @@
 #! /usr/bin/env bash
 
-/model/translate.sh 10 3 400
+/model/translate.sh 10 3 400 5
