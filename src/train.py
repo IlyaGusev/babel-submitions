@@ -7,7 +7,8 @@ import time
 import numpy as np
 from gensim.models.keyedvectors import KeyedVectors
 
-from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence
+from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence, \
+    BilingualBatch, BilingualBatchGenerator
 from src.word_by_word import WordByWordModel
 from src.unmt import UNMT
 from utils.vocabulary import Vocabulary
@@ -30,7 +31,7 @@ class Trainer:
         self.src_criterion = None
         self.tgt_criterion = None
 
-        self.model = None
+        self.model = None  # type: UNMT
         self.current_translation_model = None
 
         self.discriminator_optimizer = None
@@ -103,7 +104,6 @@ class Trainer:
               batch_size: int = 32, n_batches=None):
         src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
         tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
-        print(len(src_batches), len(tgt_batches))
         count_batches = min(len(src_batches), len(tgt_batches))
 
         print("Src batch:", src_batches[0])
@@ -136,8 +136,50 @@ class Trainer:
             self.save("model-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
 
+    def train_supervised(self, pair_filenames, big_epochs: int, print_every=1000, save_every=1000,
+                         batch_size: int = 32, n_batches=None):
+        batches = self.get_bilingual_batches(pair_filenames, lang="src", batch_size=batch_size, n=n_batches)
+        reverted_pairs = [(pair[1], pair[0]) for pair in pair_filenames]
+        reverted_batches = self.get_bilingual_batches(reverted_pairs, lang="tgt", batch_size=batch_size, n=n_batches)
+        count_batches = len(batches)
+        print("Batch:", batches[0])
+        print("Reverted batch:", reverted_batches[0])
+        for big_epoch in range(big_epochs):
+            timer = time.time()
+            print_loss_total = 0
+            for epoch, batch in enumerate(batches):
+                self.model.train()
+                loss = self.train_bilingual_batch(batch, reverted_batches[epoch])
+
+                print_loss_total += loss
+                if epoch % save_every == 0 and epoch != 0:
+                    self.save("model_supervised.pt")
+                if epoch % print_every == 0 and epoch != 0:
+                    print_loss_avg = print_loss_total / print_every
+                    print_loss_total = 0
+                    diff = time.time() - timer
+                    timer = time.time()
+                    print(self.autoencode("you can prepare your meals here .", lang="src"))
+                    print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
+                    print(self.translate("you can prepare your meals here .", lang="src"))
+                    print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss' %
+                          (big_epoch, epoch, count_batches, diff, print_loss_avg))
+            self.save("model-supervised-" + str(big_epoch) + ".pt")
+
     def get_one_lang_batches(self, filenames, lang, batch_size: int=32, n=None):
         batch_generator = OneLangBatchGenerator(filenames, batch_size, self.max_length, self.all_vocabulary, lang)
+        batches = []
+        i = 0
+        for batch in batch_generator:
+            batches.append(batch)
+            if n is not None and i == n:
+                break
+            i += 1
+        return batches
+
+    def get_bilingual_batches(self, filenames, lang, batch_size: int=32, n=None):
+        batch_generator = BilingualBatchGenerator(filenames, batch_size, self.max_length,
+                                                  self.all_vocabulary, lang, self.use_cuda)
         batches = []
         i = 0
         for batch in batch_generator:
@@ -191,6 +233,27 @@ class Trainer:
         self.main_optimizer.step()
 
         return discriminator_loss.data[0], loss.data[0]
+
+    def train_bilingual_batch(self, batch: BilingualBatch, reverted_batch: BilingualBatch):
+        self.main_optimizer.zero_grad()
+        batch = batch.cuda()
+        reverted_batch = reverted_batch.cuda()
+        batch.tgt_variable = torch.add(batch.tgt_variable, -self.src_vocabulary.size() + 1)
+        batch.tgt_variable[batch.tgt_variable < 0] = 0
+        _, loss_src = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.tgt_generator,
+                                                     self.tgt_criterion, batch.src_variable, batch.src_lengths,
+                                                     batch.tgt_variable, batch.tgt_lengths, len(batch.src_lengths),
+                                                     None)
+        _, loss_tgt = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.src_generator,
+                                                     self.src_criterion, reverted_batch.src_variable,
+                                                     reverted_batch.src_lengths, reverted_batch.tgt_variable,
+                                                     reverted_batch.tgt_lengths, len(reverted_batch.src_lengths), None)
+        loss = loss_src + loss_tgt
+        loss.backward()
+        nn.utils.clip_grad_norm(self.model.parameters(), 5)
+        self.main_optimizer.step()
+
+        return loss.data[0]
 
     def translate(self, sentence, lang):
         translator = self.model.translate_to_tgt if lang == "src" else self.model.translate_to_src
