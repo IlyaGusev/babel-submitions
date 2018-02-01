@@ -59,10 +59,11 @@ class Trainer:
         weight = weight.cuda() if self.use_cuda else weight
         self.tgt_criterion = nn.NLLLoss(weight, size_average=False)
 
-    def build_model(self, hidden_size, n_layers):
+    def build_model(self, hidden_size, n_layers, discriminator_hidden_size):
         print("Building model...")
         self.model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, self.all_vocabulary, hidden_size,
-                          use_cuda=self.use_cuda, encoder_n_layers=n_layers, decoder_n_layers=n_layers)
+                          discriminator_hidden_size=discriminator_hidden_size, use_cuda=self.use_cuda,
+                          encoder_n_layers=n_layers, decoder_n_layers=n_layers)
 
     def load_embeddings(self, src_embeddings_filename, tgt_embeddings_filename, enable_training=False):
         print("Loading embeddings...")
@@ -77,12 +78,13 @@ class Trainer:
     def init_model(self, src_filenames, tgt_filenames, src_to_tgt_dict_filename=None, tgt_to_src_dict_filename=None,
                    src_embeddings_filename=None, tgt_embeddings_filename=None, src_max_words=80000,
                    tgt_max_words=100000, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
-                   main_lr=0.0003, main_betas=(0.5, 0.999)):
+                   main_lr=0.0003, main_betas=(0.5, 0.999), discriminator_hidden_size=512):
 
         self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
                                   src_max_words=src_max_words, tgt_max_words=tgt_max_words)
         assert self.all_vocabulary.size() == self.src_vocabulary.size() + self.tgt_vocabulary.size() - 1
-        self.build_model(hidden_size=hidden_size, n_layers=n_layers)
+        self.build_model(hidden_size=hidden_size, n_layers=n_layers,
+                         discriminator_hidden_size=discriminator_hidden_size)
         if src_embeddings_filename is not None:
             self.load_embeddings(src_embeddings_filename, tgt_embeddings_filename, enable_training=False)
             assert self.model.encoder.embedding.weight.size(0) == self.all_vocabulary.size()

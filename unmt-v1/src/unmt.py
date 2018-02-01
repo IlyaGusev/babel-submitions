@@ -36,7 +36,8 @@ class Discriminator(nn.Module):
 
 class UNMT(nn.Module):
     def __init__(self, embedding_dim, src_vocabulary, tgt_vocabulary, all_vocabulary, hidden_size,
-                 encoder_n_layers=3, decoder_n_layers=3, dropout=0.1, max_length=50, use_cuda=True):
+                 discriminator_hidden_size=1024, encoder_n_layers=3, decoder_n_layers=3, dropout=0.1,
+                 max_length=50, use_cuda=True):
         super(UNMT, self).__init__()
 
         self.embedding_dim = embedding_dim
@@ -63,7 +64,7 @@ class UNMT(nn.Module):
                                       max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
         self.src_generator = Generator(hidden_size, self.src_size)
         self.tgt_generator = Generator(hidden_size, self.tgt_size)
-        self.discriminator = Discriminator(self.max_length, self.hidden_size)
+        self.discriminator = Discriminator(self.max_length, self.hidden_size, hidden_size=discriminator_hidden_size)
 
     def load_embeddings(self, src_embeddings, tgt_embeddings, enable_training=False):
         aligned_embeddings = torch.div(torch.randn(self.all_vocabulary.size(), 300), 10)

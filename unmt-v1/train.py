@@ -50,6 +50,8 @@ def train_opts(parser):
                        help='Number of layers in enc/dec.')
     group.add_argument('-rnn_size', type=int, default=300,
                        help='Size of rnn hidden states')
+    group.add_argument('-discriminator_hidden_size', type=int, default=1024,
+                       help='Size of discriminator hidden layers')
 
     # Dictionary options, for text corpus
     group = parser.add_argument_group('Vocab')
@@ -137,7 +139,8 @@ def main():
                     print_every=opt.print_every,
                     save_every=opt.save_every,
                     save_file=opt.save_model,
-                    n_batches=opt.n_batches)
+                    n_batches=opt.n_batches,
+                    discriminator_hidden_size=opt.discriminator_hidden_size)
 
     assert opt.train_src_bi is not None
     assert opt.train_tgt_bi is not None
