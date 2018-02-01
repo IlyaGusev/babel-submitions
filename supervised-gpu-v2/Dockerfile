@@ -33,7 +33,7 @@ RUN git clone https://github.com/facebookresearch/fastText.git --depth 1 && \
 	mkdir build && \
 	cd build && \
 	cmake .. && \
-	make && \
+	make -j 16 && \
 	make install
 
 WORKDIR /model/

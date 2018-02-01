@@ -35,7 +35,7 @@ RUN git clone https://github.com/facebookresearch/fastText.git --depth 1 && \
 	mkdir build && \
 	cd build && \
 	cmake .. && \
-	make && \
+	make -j 16 && \
 	make install
 
 WORKDIR /model/
@@ -54,12 +54,12 @@ ENV BLASLDFLAGS /usr/lib/libopenblas.so.0
 RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
   cd faiss && \
   mv /model/makefile.inc /model/faiss/makefile.inc && \
-  make && \
-  make py && \
+  make -j 16 && \
+  make py -j 16 && \
   cp libfaiss.a /usr/lib/ && \
   cd gpu && \
-  make && \
-  make py && \
+  make -j 16 && \
+  make py -j 16 && \
   cp libgpufaiss.a /usr/lib/ && \
   cd .. && \
   cp faiss.py /model && \
