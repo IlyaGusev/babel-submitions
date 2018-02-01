@@ -22,6 +22,13 @@ def translate_opts(parser):
     group.add_argument('-tgt_vocab_size', type=int, default=50000,
                        help="Size of the target vocabulary")
 
+    # Embedding Options
+    group = parser.add_argument_group('Embeddings')
+    group.add_argument('-src_embeddings', type=str, default=None,
+                       help='Pretrained word embeddings for src language.')
+    group.add_argument('-tgt_embeddings', type=str, default=None,
+                       help='Pretrained word embeddings for tgt language.')
+
     group = parser.add_argument_group('Model')
     group.add_argument('-lang', type=str, default="src",
                        help='Src language (src/tgt)')
@@ -29,6 +36,8 @@ def translate_opts(parser):
                        help='Number of layers in enc/dec.')
     group.add_argument('-rnn_size', type=int, default=300,
                        help='Size of rnn hidden states')
+    group.add_argument('-discriminator_hidden_size', type=int, default=512,
+                       help='Size of discriminator hidden states')
     group.add_argument('-model', required=True,
                        help='Path to model .pt file')
     group.add_argument('-input',  required=True,
@@ -54,8 +63,11 @@ def main():
     state.init_model([opt.train_src_mono, ], [opt.train_tgt_mono, ],
                      src_max_words=opt.src_vocab_size,
                      tgt_max_words=opt.tgt_vocab_size,
+                     src_embeddings_filename=opt.src_embeddings,
+                     tgt_embeddings_filename=opt.tgt_embeddings,
                      hidden_size=opt.rnn_size,
-                     n_layers=opt.layers)
+                     n_layers=opt.layers,
+                     discriminator_hidden_size=opt.discriminator_hidden_size)
     state.load(opt.model)
     input_filename = opt.input
     output_filename = opt.output
