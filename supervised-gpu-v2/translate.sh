@@ -5,9 +5,10 @@ set -x
 mosesdecoder=/model/mosesdecoder
 src=src
 tgt=tgt
-epochs=$1   # 1
-layers=$2   # 1
-rnn_size=$3 # 150
+gpuid=$1    # 0
+epochs=$2   # 3
+layers=$3   # 2
+rnn_size=$4 # 200
 
 # Randomize supervised input
 shuf /data/parallel_corpus.txt > /model/parallel_corpus_shuffled.txt
@@ -48,13 +49,8 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.$tgt < /model/full.$tgt > /model/full.tc.$tgt
 
 # Run FastText
-fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
-fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
-
-# Run MUSE
-python unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src --tgt_emb /model/embedding.ft.$tgt --dis_most_frequent 0
-cp dumped/*/vectors-$src.txt /model/embeddings/embedding.mu.$src
-cp dumped/*/vectors-$tgt.txt /model/embeddings/embedding.mu.$tgt
+fasttext skipgram -input /model/full.tc.$src -minCount 5 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
+fasttext skipgram -input /model/full.tc.$tgt -minCount 5 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 
 # Train-Validation split
 lines=`wc -l < /model/parallel.tok.clean.tc.$src`
@@ -79,11 +75,11 @@ python3 $opennmt/preprocess.py \
   -save_data /model/data
 
 # Embedding
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embeddings/embedding.mu.$src \
+$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$src.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$src
 
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embeddings/embedding.mu.$src \
+$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$tgt.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$tgt
 
@@ -98,12 +94,14 @@ python3 $opennmt/train.py -save_model /model/model \
   -learning_rate 0.001 \
   -optim adam \
   -epochs $epochs \
+  -gpuid $gpuid \
   -data /model/data
 
 # Prediction
 python3 $opennmt/translate.py -model /model/model_*_e$epochs.pt \
   -src /model/input.tok.clean.tc.$src \
   -replace_unk \
+  -gpu $gpuid \
   -output /model/output.tok.clean.tc.$tgt
 
 # Apply detruecaser
@@ -113,4 +111,3 @@ $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt 
 $mosesdecoder/scripts/tokenizer/detokenizer.perl -threads 8 < /model/output.tok.$tgt > /output/output.txt
 
 echo "DONE"
-
