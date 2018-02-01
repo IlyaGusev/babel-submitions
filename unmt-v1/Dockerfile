@@ -47,8 +47,4 @@ RUN git clone https://github.com/moses-smt/mosesdecoder.git --depth 1
 RUN mkdir /data
 RUN mkdir /output
 
-COPY clean-corpus-monolingual.perl /model/
-COPY translate.sh /model/
-COPY embeddings_to_torch.py /model/
-
 CMD ["/model/translate.sh", "0", "3", "2", "200"]
