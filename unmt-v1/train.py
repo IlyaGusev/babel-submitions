@@ -131,7 +131,8 @@ def main():
                      n_layers=opt.layers,
                      discriminator_lr=opt.discr_learning_rate,
                      main_lr=opt.learning_rate,
-                     main_betas=(opt.adam_beta1, 0.999))
+                     main_betas=(opt.adam_beta1, 0.999),
+                     discriminator_hidden_size=opt.discriminator_hidden_size)
     if not opt.supervised_only:
         state.train([opt.train_src_mono, ], [opt.train_tgt_mono, ],
                     big_epochs=opt.unsupervised_epochs,
@@ -139,8 +140,7 @@ def main():
                     print_every=opt.print_every,
                     save_every=opt.save_every,
                     save_file=opt.save_model,
-                    n_batches=opt.n_batches,
-                    discriminator_hidden_size=opt.discriminator_hidden_size)
+                    n_batches=opt.n_batches)
 
     assert opt.train_src_bi is not None
     assert opt.train_tgt_bi is not None
