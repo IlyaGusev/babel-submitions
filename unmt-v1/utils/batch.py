@@ -1,8 +1,9 @@
-from utils.vocabulary import Vocabulary
 from typing import List, Tuple
-from utils.tqdm import tqdm_open
+
 import torch
 from torch.autograd import Variable
+from utils.tqdm import tqdm_open
+from utils.vocabulary import Vocabulary
 
 
 class OneLangBatch:
@@ -84,7 +85,7 @@ class OneLangBatchGenerator:
     def __to_tensor(self, padded):
         # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
         variable = Variable(torch.LongTensor(padded), requires_grad=False).transpose(0, 1)
-        return
+        return variable
 
 
 class BilingualBatchGenerator:

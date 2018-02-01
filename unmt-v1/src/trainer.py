@@ -1,20 +1,19 @@
+import time
+
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-from torch import optim
-
-import time
-import numpy as np
 from gensim.models.keyedvectors import KeyedVectors
-
+from src.batch_transformer import BatchTransformer
+from src.models import EncoderRNN
+from src.unmt import UNMT
+from src.word_by_word import WordByWordModel
+from torch import optim
+from torch.autograd import Variable
 from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence, \
     BilingualBatch, BilingualBatchGenerator
-from src.word_by_word import WordByWordModel
-from src.unmt import UNMT
-from utils.vocabulary import Vocabulary
 from utils.tqdm import tqdm_open
-from src.models import EncoderRNN
-from src.batch_transformer import BatchTransformer
+from utils.vocabulary import Vocabulary
 
 
 class Trainer:
@@ -75,16 +74,16 @@ class Trainer:
         self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
                                                          self.all_vocabulary)
 
-    def init_model(self, src_filenames, tgt_filenames, src_embeddings_filename, tgt_embeddings_filename,
-                   src_to_tgt_dict_filename, tgt_to_src_dict_filename, src_max_words=80000, tgt_max_words=100000,
-                   load_pretrained_embeddings=True, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
+    def init_model(self, src_filenames, tgt_filenames, src_to_tgt_dict_filename, tgt_to_src_dict_filename,
+                   src_embeddings_filename=None, tgt_embeddings_filename=None, src_max_words=80000,
+                   tgt_max_words=100000, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
                    main_lr=0.0003, main_betas=(0.5, 0.999)):
 
         self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
                                   src_max_words=src_max_words, tgt_max_words=tgt_max_words)
         assert self.all_vocabulary.size() == self.src_vocabulary.size() + self.tgt_vocabulary.size() - 1
         self.build_model(hidden_size=hidden_size, n_layers=n_layers)
-        if load_pretrained_embeddings:
+        if src_embeddings_filename is not None:
             self.load_embeddings(src_embeddings_filename, tgt_embeddings_filename, enable_training=False)
             assert self.model.encoder.embedding.weight.size(0) == self.all_vocabulary.size()
 
@@ -101,7 +100,7 @@ class Trainer:
         print("Params: ", params)
 
     def train(self, src_filenames, tgt_filenames, big_epochs: int, print_every=1000, save_every=1000,
-              batch_size: int = 32, n_batches=None):
+              batch_size: int = 32, n_batches=None, save_file: str="model"):
         src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
         tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
         count_batches = min(len(src_batches), len(tgt_batches))
@@ -133,11 +132,11 @@ class Trainer:
                     print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
                           (big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
-            self.save("model-" + str(big_epoch) + ".pt")
+            self.save(save_file+"-" + str(big_epoch) + ".pt")
             # self.current_translation_model = self.model
 
     def train_supervised(self, pair_filenames, big_epochs: int, print_every=1000, save_every=1000,
-                         batch_size: int = 32, n_batches=None):
+                         batch_size: int = 32, n_batches=None, save_file: str="model"):
         batches = self.get_bilingual_batches(pair_filenames, lang="src", batch_size=batch_size, n=n_batches)
         reverted_pairs = [(pair[1], pair[0]) for pair in pair_filenames]
         reverted_batches = self.get_bilingual_batches(reverted_pairs, lang="tgt", batch_size=batch_size, n=n_batches)
@@ -164,7 +163,7 @@ class Trainer:
                     print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss' %
                           (big_epoch, epoch, count_batches, diff, print_loss_avg))
-            self.save("model-supervised-" + str(big_epoch) + ".pt")
+            self.save(save_file+"-supervised-" + str(big_epoch) + ".pt")
 
     def get_one_lang_batches(self, filenames, lang, batch_size: int=32, n=None):
         batch_generator = OneLangBatchGenerator(filenames, batch_size, self.max_length, self.all_vocabulary, lang)

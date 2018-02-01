@@ -1,8 +1,9 @@
-from torch.autograd import Variable
-import torch
-from utils.vocabulary import Vocabulary
 from typing import List, Dict
+
+import torch
+from torch.autograd import Variable
 from utils.batch import indices_from_sentence
+from utils.vocabulary import Vocabulary
 
 
 class WordByWordModel:
