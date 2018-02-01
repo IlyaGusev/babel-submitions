@@ -39,9 +39,9 @@ def train_opts(parser):
 
     # Zero Model Options
     group = parser.add_argument_group('Zero Model')
-    group.add_argument('-src_to_tgt_dict', type=str, required=True,
+    group.add_argument('-src_to_tgt_dict', type=str, default=None,
                        help='Pretrained word embeddings for src language.')
-    group.add_argument('-tgt_to_src_dict', type=str, required=True,
+    group.add_argument('-tgt_to_src_dict', type=str, default=None,
                        help='Pretrained word embeddings for tgt language.')
 
     # Encoder-Decoder Options
