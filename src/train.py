@@ -102,6 +102,7 @@ class Trainer:
               batch_size: int = 32, n_batches=None):
         src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
         tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
+        print(len(src_batches), len(tgt_batches))
         count_batches = min(len(src_batches), len(tgt_batches))
 
         print("Src batch:", src_batches[0])
@@ -195,16 +196,29 @@ class Trainer:
         variable, lengths = self.sentence_to_variable(sentence, lang)
         vocabulary = self.src_vocabulary if lang == "tgt" else self.tgt_vocabulary
         translated = list(translator(variable, lengths)[:, 0])
-        return " ".join([vocabulary.get_word(i.data[0]) for i in translated
-                         if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
+        lang = "tgt" if lang == "src" else "src"
+        words = []
+        for i in translated:
+            index = i.data[0]
+            word = vocabulary.get_word(index)
+            if word == "</s>" or word == "<pad>":
+                break
+            words.append(word)
+        return " ".join(words)
 
     def autoencode(self, sentence, lang):
         translator = self.model.translate_to_src if lang == "src" else self.model.translate_to_tgt
         variable, lengths = self.sentence_to_variable(sentence, lang)
         vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
         translated = list(translator(variable, lengths)[:, 0])
-        return " ".join([vocabulary.get_word(i.data[0]) for i in translated
-                         if i.data[0] != vocabulary.get_eos() and i.data[0] != vocabulary.get_pad()])
+        words = []
+        for i in translated:
+            index = i.data[0]
+            word = vocabulary.get_word(index)
+            if word == "</s>" or word == "<pad>":
+                break
+            words.append(word)
+        return " ".join(words)
 
     def sentence_to_variable(self, sentence, lang):
         indices = indices_from_sentence(sentence, self.all_vocabulary, lang)
