@@ -74,7 +74,7 @@ class Trainer:
         self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
                                                          self.all_vocabulary)
 
-    def init_model(self, src_filenames, tgt_filenames, src_to_tgt_dict_filename, tgt_to_src_dict_filename,
+    def init_model(self, src_filenames, tgt_filenames, src_to_tgt_dict_filename=None, tgt_to_src_dict_filename=None,
                    src_embeddings_filename=None, tgt_embeddings_filename=None, src_max_words=80000,
                    tgt_max_words=100000, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
                    main_lr=0.0003, main_betas=(0.5, 0.999)):
@@ -92,8 +92,9 @@ class Trainer:
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                          lr=main_lr, betas=main_betas)
 
-        self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
-                                      tgt_to_src_dict_filename=tgt_to_src_dict_filename)
+        if src_to_tgt_dict_filename is not None:
+            self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
+                                          tgt_to_src_dict_filename=tgt_to_src_dict_filename)
         print(self.model)
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
