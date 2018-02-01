@@ -53,7 +53,7 @@ fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thr
 fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 
 # Run MUSE
-python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src --tgt_emb /model/embedding.ft.$tgt --dis_most_frequent 0
+python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src.vec --tgt_emb /model/embedding.ft.$tgt.vec --dis_most_frequent 0
 cp dumped/*/vectors-$src.txt /model/embeddings/embedding.mu.$src
 cp dumped/*/vectors-$tgt.txt /model/embeddings/embedding.mu.$tgt
 
@@ -64,8 +64,8 @@ python3 /model/model_train.py -src_lang $src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt \
     -train_src_bi /model/parallel.tok.clean.tc.$src \
     -train_tgt_bi /model/parallel.tok.clean.tc.$tgt \
-    -layers 3 \
-    -rnn_size 200 \
+    -layers $layers \
+    -rnn_size $rnn_size \
     -src_vocab_size 40000 \
     -tgt_vocab_size 40000 \
     -print_every 100 \
@@ -74,7 +74,7 @@ python3 /model/model_train.py -src_lang $src \
     -tgt_embeddings /model/embeddings/embedding.mu.$tgt \
     -discriminator_hidden_size 512 \
     -supervised-only True \
-    -supervised_epochs 5
+    -supervised_epochs $epochs
 
 # Prediction
 python3 /model/model_translate.py -src_lang $src \
@@ -85,8 +85,8 @@ python3 /model/model_translate.py -src_lang $src \
     -input /model/input.tok.clean.tc.$src \
     -output /model/output.tok.clean.tc.$tgt \
     -discriminator_hidden_size 512 \
-    -layers 3 \
-    -rnn_size 200 \
+    -layers $layers \
+    -rnn_size $rnn_size \
     -src_vocab_size 40000 \
     -tgt_vocab_size 40000 \
     -src_embeddings /model/embeddings/embedding.mu.$src \
