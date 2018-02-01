@@ -51,11 +51,6 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
 fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 
-# Run MUSE
-python unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src --tgt_emb /model/embedding.ft.$tgt --dis_most_frequent 0
-cp dumped/*/vectors-$src.txt /model/embeddings/embedding.mu.$src
-cp dumped/*/vectors-$tgt.txt /model/embeddings/embedding.mu.$tgt
-
 # Train-Validation split
 lines=`wc -l < /model/parallel.tok.clean.tc.$src`
 lines_train=`python3 -c "print(int($lines*.95))"`
@@ -79,11 +74,11 @@ python3 $opennmt/preprocess.py \
   -save_data /model/data
 
 # Embedding
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embeddings/embedding.mu.$src \
+$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$src.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$src
 
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embeddings/embedding.mu.$src \
+$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$tgt.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$tgt
 
@@ -113,4 +108,3 @@ $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt 
 $mosesdecoder/scripts/tokenizer/detokenizer.perl -threads 8 < /model/output.tok.$tgt > /output/output.txt
 
 echo "DONE"
-
