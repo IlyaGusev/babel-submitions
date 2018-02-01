@@ -3,13 +3,14 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import optim
+from torch.autograd import Variable
 from gensim.models.keyedvectors import KeyedVectors
+
 from src.batch_transformer import BatchTransformer
 from src.models import EncoderRNN
 from src.unmt import UNMT
 from src.word_by_word import WordByWordModel
-from torch import optim
-from torch.autograd import Variable
 from utils.batch import OneLangBatch, OneLangBatchGenerator, indices_from_sentence, \
     BilingualBatch, BilingualBatchGenerator
 from utils.tqdm import tqdm_open
