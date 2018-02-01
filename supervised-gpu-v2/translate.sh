@@ -75,11 +75,11 @@ python3 $opennmt/preprocess.py \
   -save_data /model/data
 
 # Embedding
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$src.vec \
+python3 $opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$src.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$src
 
-$opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$tgt.vec \
+python3 $opennmt/tools/embeddings_to_torch.py -emb_file /model/embedding.ft.$tgt.vec \
   -dict_file /model/data.vocab.pt \
   -output_file /model/embeddings.$tgt
 
