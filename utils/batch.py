@@ -84,7 +84,7 @@ class OneLangBatchGenerator:
     def __to_tensor(self, padded):
         # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
         variable = Variable(torch.LongTensor(padded), requires_grad=False).transpose(0, 1)
-        return
+        return variable
 
 
 class BilingualBatchGenerator:

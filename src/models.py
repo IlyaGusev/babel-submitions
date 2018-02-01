@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_packed_sequence as unpack
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, embedding_dim, hidden_size, n_layers=3, dropout=0.1):
+    def __init__(self, input_size, embedding_dim, hidden_size, n_layers=3, dropout=0.3):
         super(EncoderRNN, self).__init__()
 
         num_directions = 2
@@ -36,7 +36,7 @@ class EncoderRNN(nn.Module):
 
 class DecoderRNN(nn.Module):
     def __init__(self, embedding_dim, hidden_size, output_size, n_layers=3,
-                 dropout=0.1, max_length=50, use_cuda=False):
+                 dropout=0.3, max_length=50, use_cuda=False):
         super(DecoderRNN, self).__init__()
 
         self.embedding_dim = embedding_dim
@@ -123,7 +123,7 @@ class Attn(nn.Module):
 
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, embedding_dim, hidden_size, output_size, n_layers=3, dropout=0.1, max_length=50, use_cuda=False):
+    def __init__(self, embedding_dim, hidden_size, output_size, n_layers=3, dropout=0.3, max_length=50, use_cuda=False):
         super(AttnDecoderRNN, self).__init__()
 
         self.embedding_dim = embedding_dim
