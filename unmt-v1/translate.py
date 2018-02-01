@@ -75,7 +75,7 @@ def main():
     with open(input_filename, "r", encoding="utf-8") as r, open(output_filename, "w", encoding="utf-8") as w:
         for line in r:
             translated = state.translate(line, lang)
-            print(translated)
+            # print(translated)
             w.write(translated+"\n")
 
 if __name__ == "__main__":

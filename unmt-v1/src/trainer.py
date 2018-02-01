@@ -109,8 +109,8 @@ class Trainer:
         tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
         count_batches = min(len(src_batches), len(tgt_batches))
 
-        print("Src batch:", src_batches[0])
-        print("Tgt batch:", tgt_batches[0])
+        # print("Src batch:", src_batches[0])
+        # print("Tgt batch:", tgt_batches[0])
 
         for big_epoch in range(big_epochs):
             timer = time.time()
@@ -131,9 +131,9 @@ class Trainer:
                     print_discriminator_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
-                    print(self.autoencode("you can prepare your meals here .", lang="src"))
-                    print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
-                    print(self.translate("you can prepare your meals here .", lang="src"))
+                    # print(self.autoencode("you can prepare your meals here .", lang="src"))
+                    # print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
+                    # print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
                           (big_epoch, epoch, count_batches, diff, print_main_loss_avg, print_discriminator_loss_avg))
             # self.save(save_file+"-" + str(big_epoch) + ".pt")
@@ -145,8 +145,8 @@ class Trainer:
         reverted_pairs = [(pair[1], pair[0]) for pair in pair_filenames]
         reverted_batches = self.get_bilingual_batches(reverted_pairs, lang="tgt", batch_size=batch_size, n=n_batches)
         count_batches = len(batches)
-        print("Batch:", batches[0])
-        print("Reverted batch:", reverted_batches[0])
+        # print("Batch:", batches[0])
+        # print("Reverted batch:", reverted_batches[0])
         for big_epoch in range(big_epochs):
             timer = time.time()
             print_loss_total = 0
@@ -162,9 +162,9 @@ class Trainer:
                     print_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
-                    print(self.autoencode("you can prepare your meals here .", lang="src"))
-                    print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
-                    print(self.translate("you can prepare your meals here .", lang="src"))
+                    # print(self.autoencode("you can prepare your meals here .", lang="src"))
+                    # print(self.autoencode("по запросу могут приготовить другие блюда .", lang="tgt"))
+                    # print(self.translate("you can prepare your meals here .", lang="src"))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss' %
                           (big_epoch, epoch, count_batches, diff, print_loss_avg))
             # self.save(save_file+"-supervised-" + str(big_epoch) + ".pt")

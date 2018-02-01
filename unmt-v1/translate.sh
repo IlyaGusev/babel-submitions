@@ -84,7 +84,7 @@ python3 /model/translate.py -src_lang $src \
     -tgt_lang $tgt \
     -train_src_mono /model/corpus.tok.clean.tc.$src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt  \
-    -lang src -model model.pt \
+    -lang src \
     -input /model/input.tok.clean.tc.$src \
     -output /model/output.tok.clean.tc.$tgt \
     -discriminator_hidden_size 512 \
@@ -93,7 +93,8 @@ python3 /model/translate.py -src_lang $src \
     -src_vocab_size 40000 \
     -tgt_vocab_size 40000 \
     -src_embeddings /model/embedding.mu.$src \
-    -tgt_embeddings /model/embedding.mu.$tgt
+    -tgt_embeddings /model/embedding.mu.$tgt \
+    -model model_supervised.pt
 
 # Apply detruecaser
 $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt > /model/output.tok.$tgt
