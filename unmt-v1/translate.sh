@@ -56,11 +56,11 @@ rm /model/embedding.ft.$tgt.bin
 
 # Run MUSE
 python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src.vec --tgt_emb /model/embedding.ft.$tgt.vec --dis_most_frequent 0
-cp dumped/*/vectors-$src.txt /model/embeddings/embedding.mu.$src
-cp dumped/*/vectors-$tgt.txt /model/embeddings/embedding.mu.$tgt
+cp /model/MUSE/dumped/*/vectors-$src.txt /model/embedding.mu.$src
+cp /model/MUSE/dumped/*/vectors-$tgt.txt /model/embedding.mu.$tgt
 
 # Train model
-python3 /model/model_train.py -src_lang $src \
+python3 /model/train.py -src_lang $src \
     -tgt_lang $tgt \
     -train_src_mono /model/corpus.tok.clean.tc.$src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt \
@@ -79,7 +79,7 @@ python3 /model/model_train.py -src_lang $src \
     -supervised_epochs $epochs
 
 # Prediction
-python3 /model/model_translate.py -src_lang $src \
+python3 /model/translate.py -src_lang $src \
     -tgt_lang $tgt \
     -train_src_mono /model/corpus.tok.clean.tc.$src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt  \
