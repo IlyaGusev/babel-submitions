@@ -123,7 +123,9 @@ class UNMT(nn.Module):
                             gt_variable, gt_lengths, batch_size, adv_variable):
         encoder_output, encoder_hidden = encoder(variable, lengths, None)
 
-        adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
+        adv_loss = 0
+        if adv_variable is not None:
+            adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
 
         main_loss = 0
         initial_input, initial_context = decoder.init_state(batch_size)
