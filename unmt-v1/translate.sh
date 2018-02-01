@@ -50,7 +50,9 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 
 # Run FastText
 fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
+rm /model/embedding.ft.$src.bin
 fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
+rm /model/embedding.ft.$tgt.bin
 
 # Run MUSE
 python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src.vec --tgt_emb /model/embedding.ft.$tgt.vec --dis_most_frequent 0

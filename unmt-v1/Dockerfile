@@ -55,6 +55,9 @@ RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
   cd faiss && \
   mv /model/makefile.inc /model/faiss/makefile.inc && \
   make && \
+  make py && \
+  cd gpu && \
+  make && \
   make py
 
 # playground will contain user defined scripts, it should be run as:
