@@ -4,11 +4,11 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 
-import src.train
+from src.batch_transformer import BatchTransformer
 from utils.batch import OneLangBatch
 
 
-class TestTrainer(unittest.TestCase):
+class TestBatchTransformer(unittest.TestCase):
 
     def test_prepare_translated_variable(self):
         batch = torch.from_numpy(np.array([
@@ -30,12 +30,12 @@ class TestTrainer(unittest.TestCase):
         def translation(variable, lengths):
             return Variable(torch.from_numpy(translated.T), requires_grad=False)
 
-        var, lengths = src.train.Trainer.prepare_translated_variable(translation, Variable(batch, requires_grad=False))
+        var, lengths = BatchTransformer.prepare_translated_variable(translation, Variable(batch, requires_grad=False))
         np.testing.assert_array_equal(np.array([8, 8]), lengths)
         np.testing.assert_array_equal(translated.T, var.data)
 
     def test_prepare_noisy_input(self):
-        np.random.seed(114)
+        np.random.seed(117)
         batch = torch.from_numpy(np.array([
             [997, 1831, 1831],
             [51540, 92, 92],
@@ -49,12 +49,11 @@ class TestTrainer(unittest.TestCase):
 
         var = Variable(batch, requires_grad=False)
         lengths = [8, 7, 6]
-        new_batch, new_old_batch = src.train.Trainer.prepare_noisy_input(OneLangBatch(var, lengths),
-                                                                         drop_probability=0.2)
+        new_batch, new_old_batch = BatchTransformer.prepare_noisy_input(OneLangBatch(var, lengths), drop_probability=0.3)
         np.testing.assert_equal(np.any(np.not_equal(batch.numpy(), new_old_batch.variable.data)), True)
 
     def test_add_noise(self):
-        res = src.train.Trainer.add_noise(np.array([997, 51540, 3, 2770, 3, 267, 42681, 2]))
+        res = BatchTransformer.add_noise(np.array([997, 51540, 3, 2770, 3, 267, 42681, 2]))
         assert res[-1] == 2
         assert len(res) > 0
 

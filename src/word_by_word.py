@@ -1,79 +1,71 @@
 from torch.autograd import Variable
 import torch
 from utils.vocabulary import Vocabulary
-from typing import List, Tuple, Dict
+from typing import List, Dict
 from utils.batch import indices_from_sentence
 
 
 class WordByWordModel:
-    def __init__(self, src_to_tgt_dict_filename: str, tgt_to_src_dict_filename: str, src_vocabulary: Vocabulary,
-                 tgt_vocabulary: Vocabulary, max_length: int=50):
+    def __init__(self, src_to_tgt_dict_filename: str, tgt_to_src_dict_filename: str,
+                 all_vocabulary: Vocabulary, max_length: int=50):
         self.max_length = max_length
         self.src_to_tgt_dict_filename, self.tgt_to_src_dict_filename = \
             src_to_tgt_dict_filename, tgt_to_src_dict_filename
-        self.src_vocabulary, self.tgt_vocabulary = src_vocabulary, tgt_vocabulary
+        self.all_vocabulary = all_vocabulary
 
-        self.src2tgt = self.init_mapping(src_to_tgt_dict_filename, self.src_vocabulary, self.tgt_vocabulary)
-        self.tgt2src = self.init_mapping(tgt_to_src_dict_filename, self.tgt_vocabulary, self.src_vocabulary)
+        self.src2tgt = self.init_mapping(src_to_tgt_dict_filename, self.all_vocabulary, "src", "tgt")
+        self.src2tgt[self.all_vocabulary.get_lang_eos("src")] = self.all_vocabulary.get_lang_eos("tgt")
+        self.src2tgt[self.all_vocabulary.get_lang_sos("src")] = self.all_vocabulary.get_lang_sos("tgt")
+        self.src2tgt[self.all_vocabulary.get_lang_unk("src")] = self.all_vocabulary.get_lang_unk("tgt")
+
+        self.tgt2src = self.init_mapping(tgt_to_src_dict_filename, self.all_vocabulary, "tgt", "src")
+        self.tgt2src[self.all_vocabulary.get_lang_eos("tgt")] = self.all_vocabulary.get_lang_eos("src")
+        self.tgt2src[self.all_vocabulary.get_lang_sos("tgt")] = self.all_vocabulary.get_lang_sos("src")
+        self.tgt2src[self.all_vocabulary.get_lang_unk("tgt")] = self.all_vocabulary.get_lang_unk("src")
 
     @staticmethod
-    def init_mapping(bi_dict_filename: str, first_vocab: Vocabulary, second_vocab: Vocabulary):
-        mapping = {0: 0, 1: 1, 2: 2, 3: 3}
+    def init_mapping(bi_dict_filename: str, vocabulary: Vocabulary, first_lang, second_lang):
+        mapping = {0: 0}
         with open(bi_dict_filename, "r", encoding='utf-8') as r:
             for line in r:
                 first_word, second_word = line.strip().split()
-                first_index = first_vocab.get_index(first_word)
-                second_index = second_vocab.get_index(second_word)
+                first_index = vocabulary.get_lang_index(first_word, first_lang)
+                second_index = vocabulary.get_lang_index(second_word, second_lang)
                 mapping[first_index] = second_index
         return mapping
 
     def translate_src2tgt(self, variable: Variable, lengths: int):
-        return self.map_variable(variable, self.src2tgt)
+        return self.map_variable(variable, self.src2tgt, "tgt")
 
     def translate_tgt2src(self, variable: Variable, lengths: int):
-        return self.map_variable(variable, self.tgt2src)
+        return self.map_variable(variable, self.tgt2src, "src")
 
-    def map_variable(self, variable: Variable, mapping: Dict[int, int]):
+    def map_variable(self, variable: Variable, mapping: Dict[int, int], lang):
         input_max_length = variable.size(0)
         batch_size = variable.size(1)
-
-        # Mapping
-        output_variable = Variable(torch.zeros(self.max_length, batch_size)).type(torch.LongTensor)
+        output_variable = Variable(torch.zeros(input_max_length, batch_size)).type(torch.LongTensor)
         for t in range(input_max_length):
             for i in range(batch_size):
                 index = variable[t, i].data[0]
-                if index in mapping:
-                    output_variable[t, i] = mapping[index]
-                elif index != 0:
-                    output_variable[t, i] = self.src_vocabulary.get_unk()
-
-        # Padding
-        for i in range(batch_size):
-            eos_index = self.max_length - 1
-            for t in range(self.max_length):
-                if output_variable[t, i].data[0] == 2:
-                    eos_index = t
-                    break
-            for t in range(eos_index + 1, self.max_length):
-                output_variable[t, i] = 0
+                output_variable[t, i] = mapping[index] if index in mapping else self.all_vocabulary.get_lang_unk(lang)
         return output_variable
 
     def translate_src2tgt_sentence(self, sentence: str):
-        indices = indices_from_sentence(sentence, self.src_vocabulary)
+        indices = indices_from_sentence(sentence, self.all_vocabulary, "src")
         variable = self.indices_to_variable(indices)
         output_variable = self.translate_src2tgt(variable, None)
         output_variable = output_variable.transpose(0, 1)
         tgt_indices = [i for i in list(output_variable[0].data) if i != 0]
-        result = [self.tgt_vocabulary.get_word(i) for i in tgt_indices]
+        result = [self.all_vocabulary.get_word_lang(i) for i in tgt_indices]
         return result
 
     def translate_tgt2src_sentence(self, sentence: str):
-        indices = indices_from_sentence(sentence, self.tgt_vocabulary)
+        indices = indices_from_sentence(sentence, self.all_vocabulary, "tgt")
         variable = self.indices_to_variable(indices)
         output_variable = self.translate_tgt2src(variable, None)
         output_variable = output_variable.transpose(0, 1)
         src_indices = [i for i in list(output_variable[0].data) if i != 0]
-        result = [self.src_vocabulary.get_word(i) for i in src_indices]
+        result = [self.all_vocabulary.get_word_lang(i) for i in src_indices]
         return result
 
     def indices_to_variable(self, indices: List[int]):

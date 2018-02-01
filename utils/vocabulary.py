@@ -24,6 +24,15 @@ class Vocabulary:
     def get_unk(self):
         return self.index2word.index("<unk>")
 
+    def get_lang_sos(self, lang):
+        return self.index2word.index(lang + "-</b>")
+
+    def get_lang_eos(self, lang):
+        return self.index2word.index(lang+"-</s>")
+
+    def get_lang_unk(self, lang):
+        return self.index2word.index(lang+"-<unk>")
+
     def add_sentence(self, sentence):
         for word in sentence.split(' '):
             if word == '':
@@ -38,14 +47,31 @@ class Vocabulary:
         else:
             self.word2count[word] += 1
 
+    def add_lang_word(self, word, lang):
+        self.add_word(lang+"-"+word)
+
     def get_index(self, word):
         if word in self.word2index:
             return self.word2index[word]
         else:
+            if "src-" in word:
+                return self.get_index("src-<unk>")
+            if "tgt-" in word:
+                return self.get_index("tgt-<unk>")
             return self.get_unk()
-        
+
+    def get_lang_index(self, word, lang):
+        word = lang + "-" + word
+        if word in self.word2index:
+            return self.word2index[word]
+        else:
+            return self.get_lang_unk(lang)
+
     def get_word(self, index):
         return self.index2word[index]
+
+    def get_word_lang(self, index):
+        return self.index2word[index][4:]
 
     def size(self):
         return len(self.index2word)
@@ -70,3 +96,13 @@ class Vocabulary:
         with open(self.language+".pickle", "rb") as f:
             vocab = pickle.load(f)
             self.__dict__.update(vocab.__dict__)
+
+    @staticmethod
+    def merge(vocab1, vocab2):
+        vocab = Vocabulary(language="all")
+        vocab.index2word = ["<pad>"]
+        vocab.index2word += ["src-" + word for word in vocab1.index2word[1:]]
+        vocab.index2word += ["tgt-" + word for word in vocab2.index2word[1:]]
+        vocab.word2index = {word: index for index, word in enumerate(vocab.index2word)}
+        vocab.word2count = Counter(vocab.index2word)
+        return vocab
