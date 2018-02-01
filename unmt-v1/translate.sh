@@ -3,6 +3,7 @@
 set -x
 
 mosesdecoder=/model/mosesdecoder
+muse=/model/MUSE
 src=src
 tgt=tgt
 epochs=$1   # 1
@@ -52,7 +53,7 @@ fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thr
 fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 
 # Run MUSE
-python unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src --tgt_emb /model/embedding.ft.$tgt --dis_most_frequent 0
+python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src --tgt_emb /model/embedding.ft.$tgt --dis_most_frequent 0
 cp dumped/*/vectors-$src.txt /model/embeddings/embedding.mu.$src
 cp dumped/*/vectors-$tgt.txt /model/embeddings/embedding.mu.$tgt
 
@@ -76,7 +77,7 @@ python3 /model/model_train.py -src_lang $src \
     -supervised_epochs 5
 
 # Prediction
-python3 model_translate.py -src_lang $src \
+python3 /model/model_translate.py -src_lang $src \
     -tgt_lang $tgt \
     -train_src_mono /model/corpus.tok.clean.tc.$src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt  \
@@ -98,4 +99,3 @@ $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt 
 $mosesdecoder/scripts/tokenizer/detokenizer.perl -threads 8 < /model/output.tok.$tgt > /output/output.txt
 
 echo "DONE"
-
