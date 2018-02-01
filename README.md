@@ -12,7 +12,16 @@ Two steps should be performed to prepare data:
 + run the `download_data.sh` to get the train data
 + execute the `tokenizer.sh` to clean up the data for training
 
+## Language detection
+Use this docker image `kwakinalabs/langdetect`
+
+## Set up instructions NVIDIA
++ `docker.io` package does not work for `--runtime=nvidia`, one would have to use `Docker-CE`.
++ Installation instructions for [Docker-CE](https://docs.docker.com/install/linux/docker-ce/ubuntu/).
++ Then one would have to install [nvidia-docker-v2](https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-2.0))
+
 ## Result
 | #  | Score   | Description     | Image                    |
 |----|---------|-----------------|--------------------------|
 | 1  | 0.03778 | `baseline`      | ashmat98/baseline        |
+| 2  | 0.02077 | `lang-detect`   | kwakinalabs/langdetect   |
