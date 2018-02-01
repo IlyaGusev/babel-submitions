@@ -103,20 +103,21 @@ class UNMT(nn.Module):
             self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, tgt_criterion,
                                      tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
                                      tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable)
-        return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss])
 
-#         cd_src_adv_loss, cd_src_cd_loss = \
-#             self.encoder_decoder_run(self.tgt_encoder, self.src_decoder, self.src_generator, src_criterion,
-#                                      src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
-#                                      src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
+        cd_src_adv_loss, cd_src_cd_loss = \
+            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, src_criterion,
+                                     src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
+                                     src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
 
-#         cd_tgt_adv_loss, cd_tgt_cd_loss = \
-#             self.encoder_decoder_run(self.src_encoder, self.tgt_decoder, self.tgt_generator, tgt_criterion,
-#                                      tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
-#                                      tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
+        tgt_batch__.variable = torch.add(tgt_batch__.variable, -self.src_vocabulary.size() + 1)
+        tgt_batch__.variable[tgt_batch__.variable < 0] = 0
+        cd_tgt_adv_loss, cd_tgt_cd_loss = \
+            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, tgt_criterion,
+                                     tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
+                                     tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
 
-#         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
-#                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
+        return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
+                    cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
     def encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
                             gt_variable, gt_lengths, batch_size, adv_variable):
@@ -125,16 +126,13 @@ class UNMT(nn.Module):
         adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
 
         main_loss = 0
-#         initial_input = decoder.init_state(batch_size)
         initial_input, initial_context = decoder.init_state(batch_size)
-#         decoder_output, _ = decoder(gt_variable, gt_lengths, encoder_hidden, initial_input)
         decoder_output, _, _ = decoder(gt_variable, gt_lengths, encoder_hidden, encoder_output,
                                        initial_input, initial_context)
         max_length = max(gt_lengths)
         for t in range(max_length):
             scores = generator(decoder_output[t])
-            target = gt_variable[t]
-            main_loss += criterion(scores, target)
+            main_loss += criterion(scores, gt_variable[t])
         return adv_loss, main_loss
 
     def get_discriminator_loss(self, encoder_output, target_variable):
@@ -151,10 +149,8 @@ class UNMT(nn.Module):
         output_variable = output_variable.cuda() if self.use_cuda else output_variable
 
         encoder_output, hidden = encoder(variable, lengths, None)
-#         current_input = decoder.init_state(batch_size)
         current_input, context = decoder.init_state(batch_size)
         for t in range(self.max_length):
-#             output, hidden = decoder(None, None, hidden, current_input, one_step=True)
             output, hidden, _ = decoder(None, None, hidden, encoder_output, current_input, context, one_step=True)
             context = output
 

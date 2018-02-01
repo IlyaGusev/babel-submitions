@@ -15,6 +15,7 @@ from utils.tqdm import tqdm_open
 from src.models import EncoderRNN
 from src.batch_transformer import BatchTransformer
 
+
 class Trainer:
     def __init__(self, src_lang: str, tgt_lang: str, max_length: int=50, use_cuda=True):
         self.src_lang = src_lang
