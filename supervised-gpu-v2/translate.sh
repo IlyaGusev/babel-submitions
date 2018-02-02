@@ -2,6 +2,12 @@
 
 set -x
 
+lines=`wc -l < /data/input.txt`
+if [ $lines -lt 101 ]; then
+  cat /data/input.txt > /output/output.txt
+  exit 0
+fi
+
 mosesdecoder=/model/mosesdecoder
 src=src
 tgt=tgt
