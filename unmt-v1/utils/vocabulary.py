@@ -4,12 +4,13 @@ import pickle
 
 
 class Vocabulary:
-    def __init__(self, language):
+    def __init__(self, language, path):
         self.language = language
         self.word2index = {}
         self.word2count = Counter()
         self.index2word = ["<pad>", "</b>", "</s>", "<unk>"]
-        if os.path.exists(self.language+".pickle"):
+        self.path = path
+        if os.path.exists(path):
             self.load()
 
     def get_pad(self):
@@ -77,7 +78,9 @@ class Vocabulary:
         return len(self.index2word)
 
     def is_empty(self):
-        return self.size() <= 4
+        if self.language != "all":
+            return self.size() <= 4
+        return self.size() <= 7
 
     def shrink(self, n):
         best_words = self.word2count.most_common(n)
@@ -89,17 +92,17 @@ class Vocabulary:
             self.word2count[word] = count
 
     def save(self) -> None:
-        with open(self.language+".pickle", "wb") as f:
+        with open(self.path, "wb") as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     def load(self):
-        with open(self.language+".pickle", "rb") as f:
+        with open(self.path, "rb") as f:
             vocab = pickle.load(f)
             self.__dict__.update(vocab.__dict__)
 
     @staticmethod
-    def merge(vocab1, vocab2):
-        vocab = Vocabulary(language="all")
+    def merge(vocab1, vocab2, path):
+        vocab = Vocabulary(language="all", path=path)
         vocab.index2word = ["<pad>"]
         vocab.index2word += ["src-" + word for word in vocab1.index2word[1:]]
         vocab.index2word += ["tgt-" + word for word in vocab2.index2word[1:]]
