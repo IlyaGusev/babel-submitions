@@ -92,25 +92,25 @@ class UNMT(nn.Module):
         adv_zeros_variable = adv_zeros_variable.cuda() if self.use_cuda else adv_zeros_variable
 
         src_adv_loss, src_auto_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.generator, criterion,
                                      src_noisy_batch.variable, src_noisy_batch.lengths,
                                      src_batch_.variable, src_batch_.lengths, batch_size, adv_ones_variable,
                                      self.all_vocabulary.get_lang_sos("src"))
 
         tgt_adv_loss, tgt_auto_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.generator, criterion,
                                      tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
                                      tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable,
                                      self.all_vocabulary.get_lang_sos("tgt"))
 
         cd_src_adv_loss, cd_src_cd_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.generator, criterion,
                                      src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
                                      src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable,
                                      self.all_vocabulary.get_lang_sos("src"))
 
         cd_tgt_adv_loss, cd_tgt_cd_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.generator, criterion,
                                      tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
                                      tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable,
                                      self.all_vocabulary.get_lang_sos("tgt"))
