@@ -15,8 +15,7 @@ tgt=tgt
 epochs=$1           # 15
 layers=$2           # 3
 rnn_size=$3         # 400
-muse_epochs=$4      # 10
-fasttext_epochs=$5  # 10
+fasttext_epochs=$5  # 20
 
 # Randomize supervised input
 shuf /data/parallel_corpus.txt > /model/parallel_corpus_shuffled.txt
@@ -57,18 +56,14 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.$tgt < /model/full.$tgt > /model/full.tc.$tgt
 
 # Run FastText
-fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
+fasttext skipgram -input /model/full.tc.$src -minCount 2 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src -neg 10
 rm /model/embedding.ft.$src.bin
-fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
+fasttext skipgram -input /model/full.tc.$tgt -minCount 2 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt -neg 10
 rm /model/embedding.ft.$tgt.bin
-
-# Run MUSE
-python3 $muse/unsupervised.py --src_lang $src --tgt_lang $tgt --src_emb /model/embedding.ft.$src.vec --tgt_emb /model/embedding.ft.$tgt.vec --dis_most_frequent 0 --n_epochs $muse_epochs
-cp /model/MUSE/dumped/*/vectors-$src.txt /model/embedding.mu.$src
-cp /model/MUSE/dumped/*/vectors-$tgt.txt /model/embedding.mu.$tgt
-
+    
 # Train model
-python3 /model/train.py -src_lang $src \
+python3 /model/train.py \
+    -src_lang $src \
     -tgt_lang $tgt \
     -train_src_mono /model/corpus.tok.clean.tc.$src \
     -train_tgt_mono /model/corpus.tok.clean.tc.$tgt \
@@ -76,32 +71,30 @@ python3 /model/train.py -src_lang $src \
     -train_tgt_bi /model/parallel.tok.clean.tc.$tgt \
     -layers $layers \
     -rnn_size $rnn_size \
-    -src_vocab_size 40000 \
-    -tgt_vocab_size 40000 \
+    -src_vocab_size 50000 \
+    -tgt_vocab_size 50000 \
     -print_every 100 \
     -batch_size 64 \
-    -src_embeddings /model/embedding.mu.$src \
-    -tgt_embeddings /model/embedding.mu.$tgt \
-    -discriminator_hidden_size 512 \
-    -supervised_only True \
-    -supervised_epochs $epochs
+    -src_embeddings /model/embedding.ft.$src.vec \
+    -tgt_embeddings /model/embedding.ft.$tgt.vec \
+    -discriminator_hidden_size 1024 \
+    -supervised_epochs $epochs \
+    -supervised_only 1 \
+    -src_vocabulary /model/src.pickle \
+    -tgt_vocabulary /model/tgt.pickle \
+    -all_vocabulary /model/all.pickle 
 
 # Prediction
-python3 /model/translate.py -src_lang $src \
+python3 translate.py \
+    -src_lang $src \
     -tgt_lang $tgt \
-    -train_src_mono /model/corpus.tok.clean.tc.$src \
-    -train_tgt_mono /model/corpus.tok.clean.tc.$tgt  \
     -lang src \
+    -model model_supervised.pt \
     -input /model/input.tok.clean.tc.$src \
     -output /model/output.tok.clean.tc.$tgt \
-    -discriminator_hidden_size 512 \
-    -layers $layers \
-    -rnn_size $rnn_size \
-    -src_vocab_size 40000 \
-    -tgt_vocab_size 40000 \
-    -src_embeddings /model/embedding.mu.$src \
-    -tgt_embeddings /model/embedding.mu.$tgt \
-    -model model_supervised.pt
+    -src_vocabulary /model/src.pickle \
+    -tgt_vocabulary /model/tgt.pickle \
+    -all_vocabulary /model/all.pickle 
 
 # Apply detruecaser
 $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt > /model/output.tok.$tgt
