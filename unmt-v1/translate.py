@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from src.trainer import Trainer
+from src.translator import Translator
 
 
 def translate_opts(parser):
@@ -60,10 +61,13 @@ def main():
     input_filename = opt.input
     output_filename = opt.output
     lang = opt.lang
+    tgt_lang = "src" if lang == "tgt" else "tgt"
+    output_vocabulary = state.src_vocabulary if tgt_lang == "src" else state.tgt_vocabulary
     print("Writing output...")
     with open(input_filename, "r", encoding="utf-8") as r, open(output_filename, "w", encoding="utf-8") as w:
         for line in r:
-            translated = state.translate(line, lang)
+            translated = Translator.translate(state.model, line, lang, tgt_lang,
+                                              state.all_vocabulary, output_vocabulary, use_cuda)
             # print(translated)
             w.write(translated+"\n")
 
