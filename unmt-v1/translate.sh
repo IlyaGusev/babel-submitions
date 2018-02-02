@@ -12,10 +12,11 @@ mosesdecoder=/model/mosesdecoder
 muse=/model/MUSE
 src=src
 tgt=tgt
-epochs=$1      # 1
-layers=$2      # 1
-rnn_size=$3    # 150
-muse_epochs=$4 # 5
+epochs=$1           # 15
+layers=$2           # 3
+rnn_size=$3         # 400
+muse_epochs=$4      # 10
+fasttext_epochs=$5  # 10
 
 # Randomize supervised input
 shuf /data/parallel_corpus.txt > /model/parallel_corpus_shuffled.txt
@@ -56,9 +57,9 @@ $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.
 $mosesdecoder/scripts/recaser/truecase.perl -model /model/corpus-truecase-model.$tgt < /model/full.$tgt > /model/full.tc.$tgt
 
 # Run FastText
-fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
+fasttext skipgram -input /model/full.tc.$src -minCount 3 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$src
 rm /model/embedding.ft.$src.bin
-fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch 10 -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
+fasttext skipgram -input /model/full.tc.$tgt -minCount 3 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt
 rm /model/embedding.ft.$tgt.bin
 
 # Run MUSE
