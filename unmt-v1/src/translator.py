@@ -7,14 +7,14 @@ from utils.vocabulary import Vocabulary
 
 class Translator:
     @staticmethod
-    def translate(model, sentence, src_lang, tgt_lang, input_vocabulary, output_vocabulary, use_cuda):
+    def translate(model, sentence, src_lang, tgt_lang, vocabulary, use_cuda):
         translator = model.translate_to_tgt if tgt_lang == "tgt" else model.translate_to_src
-        variable, lengths = Translator.sentence_to_variable(sentence, src_lang, input_vocabulary, use_cuda)
+        variable, lengths = Translator.sentence_to_variable(sentence, src_lang, vocabulary, use_cuda)
         translated = list(translator(variable, lengths)[:, 0])
         words = []
         for i in translated:
             index = i.data[0]
-            word = output_vocabulary.get_word(index)
+            word = vocabulary.get_word(index)
             if word == "</s>" or word == "<pad>":
                 break
             words.append(word)
