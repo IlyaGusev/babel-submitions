@@ -19,6 +19,12 @@ def train_opts(parser):
 
     # Data options
     group = parser.add_argument_group('Data')
+    group.add_argument('-src_vocabulary', default="src.pickle",
+                       help="Path to src vocab")
+    group.add_argument('-tgt_vocabulary', default="tgt.pickle",
+                       help="Path to tgt vocab")
+    group.add_argument('-all_vocabulary', default="all.pickle",
+                       help="Path to all vocab")
     group.add_argument('-train_src_mono', required=True,
                        help="Path to the training source monolingual data")
     group.add_argument('-train_tgt_mono', required=True,
@@ -39,9 +45,9 @@ def train_opts(parser):
 
     # Zero Model Options
     group = parser.add_argument_group('Zero Model')
-    group.add_argument('-src_to_tgt_dict', type=str, required=True,
+    group.add_argument('-src_to_tgt_dict', type=str, default=None,
                        help='Pretrained word embeddings for src language.')
-    group.add_argument('-tgt_to_src_dict', type=str, required=True,
+    group.add_argument('-tgt_to_src_dict', type=str, default=None,
                        help='Pretrained word embeddings for tgt language.')
 
     # Encoder-Decoder Options
@@ -120,7 +126,8 @@ def main():
     use_cuda = torch.cuda.is_available()
     print("Use CUDA: ", use_cuda)
     state = Trainer(opt.src_lang, opt.tgt_lang, use_cuda=use_cuda)
-    state.init_model([opt.train_src_mono, ], [opt.train_tgt_mono, ],
+    state.init_model(src_filenames=[opt.train_src_mono, ],
+                     tgt_filenames=[opt.train_tgt_mono, ],
                      src_to_tgt_dict_filename=opt.src_to_tgt_dict,
                      tgt_to_src_dict_filename=opt.tgt_to_src_dict,
                      src_embeddings_filename=opt.src_embeddings,
@@ -132,7 +139,10 @@ def main():
                      discriminator_lr=opt.discr_learning_rate,
                      main_lr=opt.learning_rate,
                      main_betas=(opt.adam_beta1, 0.999),
-                     discriminator_hidden_size=opt.discriminator_hidden_size)
+                     discriminator_hidden_size=opt.discriminator_hidden_size,
+                     src_vocabulary_path=opt.src_vocabulary,
+                     tgt_vocabulary_path=opt.tgt_vocabulary,
+                     all_vocabulary_path=opt.all_vocabulary)
     if not opt.supervised_only:
         state.train([opt.train_src_mono, ], [opt.train_tgt_mono, ],
                     big_epochs=opt.unsupervised_epochs,
