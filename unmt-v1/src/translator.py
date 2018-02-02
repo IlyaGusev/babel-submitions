@@ -14,7 +14,7 @@ class Translator:
         words = []
         for i in translated:
             index = i.data[0]
-            word = vocabulary.get_word(index)
+            word = vocabulary.get_word(index)[4:]
             if word == "</s>" or word == "<pad>":
                 break
             words.append(word)
