@@ -8,7 +8,7 @@ if [ $lines -lt 101 ]; then
   exit 0
 fi
 
-langs=("pt" "ro" "ru" "sk" "sl" "so" "sq" "sv" "sw" "ta")
+langs=("no" "pa" "pl" "te" "th" "tl" "tr" "uk" "ur" "vi" "zh-cn" "zh-tw")
 
 l=`python /model/lang_detect.py --corpus /data/corpus2.txt`
 (for e in "${langs[@]}"; do [[ "$e" == "$l" ]] && exit 0; done) && { #found
