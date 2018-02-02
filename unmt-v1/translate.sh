@@ -86,7 +86,7 @@ python3 /model/train.py \
     -all_vocabulary /model/all.pickle
 
 # Prediction
-python3 translate.py \
+python3 /model/translate.py \
     -src_lang $src \
     -tgt_lang $tgt \
     -lang src \
