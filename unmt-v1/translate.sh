@@ -71,15 +71,16 @@ python3 /model/train.py \
     -train_tgt_bi /model/parallel.tok.clean.tc.$tgt \
     -layers $layers \
     -rnn_size $rnn_size \
-    -src_vocab_size 50000 \
-    -tgt_vocab_size 50000 \
+    -src_vocab_size 45000 \
+    -tgt_vocab_size 45000 \
     -print_every 100 \
     -batch_size 64 \
     -src_embeddings /model/embedding.ft.$src.vec \
     -tgt_embeddings /model/embedding.ft.$tgt.vec \
     -discriminator_hidden_size 1024 \
     -supervised_epochs $epochs \
-    -supervised_only 1 \
+    -unsupervised_epochs 1 \
+    -n_unsupervised_batches 3000 \
     -src_vocabulary /model/src.pickle \
     -tgt_vocabulary /model/tgt.pickle \
     -all_vocabulary /model/all.pickle
@@ -89,7 +90,7 @@ python3 translate.py \
     -src_lang $src \
     -tgt_lang $tgt \
     -lang src \
-    -model model_supervised.pt \
+    -model model.pt \
     -input /model/input.tok.clean.tc.$src \
     -output /model/output.tok.clean.tc.$tgt \
     -src_vocabulary /model/src.pickle \

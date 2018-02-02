@@ -5,11 +5,6 @@ from src.trainer import Trainer
 
 
 def train_opts(parser):
-    # Model
-    group = parser.add_argument_group('Mode')
-    group.add_argument('-supervised_only', type=bool, default=False,
-                       help='Flag for supervised only mode.')
-
     # Languages Options
     group = parser.add_argument_group('Languages')
     group.add_argument('-src_lang', type=str, required=True,
@@ -33,8 +28,10 @@ def train_opts(parser):
                        help="Path to the training source bilingual data")
     group.add_argument('-train_tgt_bi', default=None,
                        help="Path to the training target bilingual data")
-    group.add_argument('-n_batches', type=int, default=None,
-                       help="Count of src batches to process")
+    group.add_argument('-n_unsupervised_batches', type=int, default=None,
+                       help="Count of src/tgt batches to process")
+    group.add_argument('-n_supervised_batches', type=int, default=None,
+                       help="Count of parallel/reverted batches to process")
 
     # Embedding Options
     group = parser.add_argument_group('Embeddings')
@@ -143,23 +140,17 @@ def main():
                      src_vocabulary_path=opt.src_vocabulary,
                      tgt_vocabulary_path=opt.tgt_vocabulary,
                      all_vocabulary_path=opt.all_vocabulary)
-    if not opt.supervised_only:
-        state.train([opt.train_src_mono, ], [opt.train_tgt_mono, ],
-                    big_epochs=opt.unsupervised_epochs,
-                    batch_size=opt.batch_size,
-                    print_every=opt.print_every,
-                    save_every=opt.save_every,
-                    save_file=opt.save_model,
-                    n_batches=opt.n_batches)
 
-    assert opt.train_src_bi is not None
-    assert opt.train_tgt_bi is not None
-    state.train_supervised([(opt.train_src_bi, opt.train_tgt_bi), ],
-                           big_epochs=opt.supervised_epochs,
-                           batch_size=opt.batch_size,
-                           print_every=opt.print_every,
-                           save_every=opt.save_every,
-                           save_file=opt.save_model)
+    state.train([opt.train_src_mono, ], [opt.train_tgt_mono, ],
+                [(opt.train_src_bi, opt.train_tgt_bi), ],
+                supervised_big_epochs=opt.supervised_epochs,
+                unsupervised_big_epochs=opt.unsupervised_epochs,
+                batch_size=opt.batch_size,
+                print_every=opt.print_every,
+                save_every=opt.save_every,
+                save_file=opt.save_model,
+                n_unsupervised_batches=opt.n_unsupervised_batches,
+                n_supervised_batches=opt.n_supervised_batches)
 
 if __name__ == "__main__":
     main()
