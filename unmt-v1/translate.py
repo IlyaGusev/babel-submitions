@@ -67,7 +67,7 @@ def main():
     with open(input_filename, "r", encoding="utf-8") as r, open(output_filename, "w", encoding="utf-8") as w:
         for line in r:
             translated = Translator.translate(state.model, line, lang, tgt_lang,
-                                              state.all_vocabulary, output_vocabulary, use_cuda)
+                                              state.all_vocabulary, use_cuda)
             # print(translated)
             w.write(translated+"\n")
 
