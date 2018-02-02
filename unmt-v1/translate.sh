@@ -12,10 +12,10 @@ mosesdecoder=/model/mosesdecoder
 muse=/model/MUSE
 src=src
 tgt=tgt
-epochs=$1           # 15
+epochs=$1           # 5
 layers=$2           # 3
 rnn_size=$3         # 400
-fasttext_epochs=$5  # 20
+fasttext_epochs=$4  # 20
 
 # Randomize supervised input
 shuf /data/parallel_corpus.txt > /model/parallel_corpus_shuffled.txt
@@ -60,7 +60,7 @@ fasttext skipgram -input /model/full.tc.$src -minCount 2 -epoch $fasttext_epochs
 rm /model/embedding.ft.$src.bin
 fasttext skipgram -input /model/full.tc.$tgt -minCount 2 -epoch $fasttext_epochs -loss ns -thread 16 -dim 300 -output /model/embedding.ft.$tgt -neg 10
 rm /model/embedding.ft.$tgt.bin
-    
+
 # Train model
 python3 /model/train.py \
     -src_lang $src \
@@ -82,7 +82,7 @@ python3 /model/train.py \
     -supervised_only 1 \
     -src_vocabulary /model/src.pickle \
     -tgt_vocabulary /model/tgt.pickle \
-    -all_vocabulary /model/all.pickle 
+    -all_vocabulary /model/all.pickle
 
 # Prediction
 python3 translate.py \
@@ -94,7 +94,7 @@ python3 translate.py \
     -output /model/output.tok.clean.tc.$tgt \
     -src_vocabulary /model/src.pickle \
     -tgt_vocabulary /model/tgt.pickle \
-    -all_vocabulary /model/all.pickle 
+    -all_vocabulary /model/all.pickle
 
 # Apply detruecaser
 $mosesdecoder/scripts/recaser/detruecase.perl < /model/output.tok.clean.tc.$tgt > /model/output.tok.$tgt
