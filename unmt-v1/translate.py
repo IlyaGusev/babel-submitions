@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from src.trainer import Trainer
+from src.translator import Translator
 
 
 def translate_opts(parser):
@@ -13,14 +14,12 @@ def translate_opts(parser):
                        help='Tgt language.')
 
     group = parser.add_argument_group('Vocabulary')
-    group.add_argument('-train_src_mono', required=True,
-                       help="Path to the training source monolingual data")
-    group.add_argument('-train_tgt_mono', required=True,
-                       help="Path to the training target monolingual data")
-    group.add_argument('-src_vocab_size', type=int, default=50000,
-                       help="Size of the source vocabulary")
-    group.add_argument('-tgt_vocab_size', type=int, default=50000,
-                       help="Size of the target vocabulary")
+    group.add_argument('-src_vocabulary', default="src.pickle",
+                       help="Path to src vocab")
+    group.add_argument('-tgt_vocabulary', default="tgt.pickle",
+                       help="Path to tgt vocab")
+    group.add_argument('-all_vocabulary', default="all.pickle",
+                       help="Path to all vocab")
 
     # Embedding Options
     group = parser.add_argument_group('Embeddings')
@@ -32,12 +31,6 @@ def translate_opts(parser):
     group = parser.add_argument_group('Model')
     group.add_argument('-lang', type=str, default="src",
                        help='Src language (src/tgt)')
-    group.add_argument('-layers', type=int, default=3,
-                       help='Number of layers in enc/dec.')
-    group.add_argument('-rnn_size', type=int, default=300,
-                       help='Size of rnn hidden states')
-    group.add_argument('-discriminator_hidden_size', type=int, default=512,
-                       help='Size of discriminator hidden states')
     group.add_argument('-model', required=True,
                        help='Path to model .pt file')
     group.add_argument('-input',  required=True,
@@ -60,21 +53,21 @@ def main():
     use_cuda = torch.cuda.is_available()
     print("Use CUDA: ", use_cuda)
     state = Trainer(opt.src_lang, opt.tgt_lang, use_cuda=use_cuda)
-    state.init_model([opt.train_src_mono, ], [opt.train_tgt_mono, ],
-                     src_max_words=opt.src_vocab_size,
-                     tgt_max_words=opt.tgt_vocab_size,
-                     src_embeddings_filename=opt.src_embeddings,
-                     tgt_embeddings_filename=opt.tgt_embeddings,
-                     hidden_size=opt.rnn_size,
-                     n_layers=opt.layers,
-                     discriminator_hidden_size=opt.discriminator_hidden_size)
+    state.collect_vocabularies(src_vocabulary_path=opt.src_vocabulary,
+                               tgt_vocabulary_path=opt.tgt_vocabulary,
+                               all_vocabulary_path=opt.all_vocabulary)
     state.load(opt.model)
+    state.model = state.model.cuda() if use_cuda else state.model
     input_filename = opt.input
     output_filename = opt.output
     lang = opt.lang
+    tgt_lang = "src" if lang == "tgt" else "tgt"
+    output_vocabulary = state.src_vocabulary if tgt_lang == "src" else state.tgt_vocabulary
+    print("Writing output...")
     with open(input_filename, "r", encoding="utf-8") as r, open(output_filename, "w", encoding="utf-8") as w:
         for line in r:
-            translated = state.translate(line, lang)
+            translated = Translator.translate(state.model, line, lang, tgt_lang,
+                                              state.all_vocabulary, output_vocabulary, use_cuda)
             # print(translated)
             w.write(translated+"\n")
 

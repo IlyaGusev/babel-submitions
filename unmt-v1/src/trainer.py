@@ -18,38 +18,48 @@ from utils.vocabulary import Vocabulary
 
 
 class Trainer:
-    def __init__(self, src_lang: str, tgt_lang: str, max_length: int=50, use_cuda=True):
-        self.src_lang = src_lang
-        self.tgt_lang = tgt_lang
-        self.max_length = max_length
-        self.use_cuda = use_cuda
-
-        self.src_vocabulary = None
-        self.tgt_vocabulary = None
-        self.all_vocabulary = None
-
-        self.src_criterion = None
-        self.tgt_criterion = None
-
+    def __init__(self, src_lang: str, tgt_lang: str, max_length: int=50, use_cuda: bool=True):
         self.model = None  # type: UNMT
         self.current_translation_model = None
 
+        self.src_lang = src_lang  # type: str
+        self.tgt_lang = tgt_lang  # type: str
+        self.max_length = max_length  # type: int
+        self.use_cuda = use_cuda  # type: bool
+
+        self.src_vocabulary = None  # type: Vocabulary
+        self.tgt_vocabulary = None  # type: Vocabulary
+        self.all_vocabulary = None  # type: Vocabulary
+
+        self.src_criterion = None
+        self.tgt_criterion = None
         self.discriminator_optimizer = None
         self.main_optimizer = None
 
-    def collect_vocabularies(self, src_filenames, tgt_filenames, src_max_words=80000, tgt_max_words=100000):
+    def collect_vocabularies(self, src_vocabulary_path: str, tgt_vocabulary_path: str, all_vocabulary_path: str,
+                             src_filenames=tuple(), tgt_filenames=tuple(), src_max_words=80000, tgt_max_words=100000):
         print("Collecting vocabularies...")
-        self.src_vocabulary = Vocabulary(language=self.src_lang)
-        self.tgt_vocabulary = Vocabulary(language=self.tgt_lang)
-        for filename in src_filenames:
-            self.src_vocabulary = self.add_filename_to_vocabulary(filename, self.src_vocabulary)
-        for filename in tgt_filenames:
-            self.tgt_vocabulary = self.add_filename_to_vocabulary(filename, self.tgt_vocabulary)
+        self.src_vocabulary = Vocabulary(language=self.src_lang, path=src_vocabulary_path)
+        self.tgt_vocabulary = Vocabulary(language=self.tgt_lang, path=tgt_vocabulary_path)
+        self.all_vocabulary = Vocabulary(language="all", path=all_vocabulary_path)
 
-        self.src_vocabulary.shrink(src_max_words)
-        self.tgt_vocabulary.shrink(tgt_max_words)
-        self.all_vocabulary = Vocabulary.merge(self.src_vocabulary, self.tgt_vocabulary)
+        if self.src_vocabulary.is_empty():
+            for filename in src_filenames:
+                self.src_vocabulary = self.add_filename_to_vocabulary(filename, self.src_vocabulary)
+            self.src_vocabulary.shrink(src_max_words)
+            self.src_vocabulary.save()
+        if self.tgt_vocabulary.is_empty():
+            for filename in tgt_filenames:
+                self.tgt_vocabulary = self.add_filename_to_vocabulary(filename, self.tgt_vocabulary)
+            self.tgt_vocabulary.shrink(tgt_max_words)
+            self.tgt_vocabulary.save()
 
+        if self.all_vocabulary.is_empty():
+            self.all_vocabulary = Vocabulary.merge(self.src_vocabulary, self.tgt_vocabulary, all_vocabulary_path)
+            self.all_vocabulary.save()
+        assert self.all_vocabulary.size() == self.src_vocabulary.size() + self.tgt_vocabulary.size() - 1
+
+    def init_criterions(self):
         weight = torch.ones(self.src_vocabulary.size())
         weight[self.src_vocabulary.get_pad()] = 0
         weight = weight.cuda() if self.use_cuda else weight
@@ -60,51 +70,75 @@ class Trainer:
         weight = weight.cuda() if self.use_cuda else weight
         self.tgt_criterion = nn.NLLLoss(weight, size_average=False)
 
-    def build_model(self, hidden_size, n_layers, discriminator_hidden_size):
+    def build_model(self, hidden_size, encoder_n_layers, decoder_n_layers,
+                    discriminator_hidden_size, embeddings_freeze=True):
         print("Building model...")
         self.model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, self.all_vocabulary, hidden_size,
                           discriminator_hidden_size=discriminator_hidden_size, use_cuda=self.use_cuda,
-                          encoder_n_layers=n_layers, decoder_n_layers=n_layers)
+                          encoder_n_layers=encoder_n_layers, decoder_n_layers=decoder_n_layers,
+                          embeddings_freeze=embeddings_freeze)
 
     def load_embeddings(self, src_embeddings_filename, tgt_embeddings_filename, enable_training=False):
         print("Loading embeddings...")
         src_word_vectors = KeyedVectors.load_word2vec_format(src_embeddings_filename, binary=False)
         tgt_word_vectors = KeyedVectors.load_word2vec_format(tgt_embeddings_filename, binary=False)
         self.model.load_embeddings(src_word_vectors, tgt_word_vectors, enable_training=enable_training)
+        assert self.model.encoder.embedding.weight.size(0) == self.all_vocabulary.size()
 
-    def build_word_by_word_model(self, src_to_tgt_dict_filename, tgt_to_src_dict_filename):
-        self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
-                                                         self.all_vocabulary)
-
-    def init_model(self, src_filenames, tgt_filenames, src_to_tgt_dict_filename=None, tgt_to_src_dict_filename=None,
-                   src_embeddings_filename=None, tgt_embeddings_filename=None, src_max_words=80000,
-                   tgt_max_words=100000, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
-                   main_lr=0.0003, main_betas=(0.5, 0.999), discriminator_hidden_size=512):
-
-        self.collect_vocabularies(src_filenames=src_filenames, tgt_filenames=tgt_filenames,
-                                  src_max_words=src_max_words, tgt_max_words=tgt_max_words)
-        assert self.all_vocabulary.size() == self.src_vocabulary.size() + self.tgt_vocabulary.size() - 1
-        self.build_model(hidden_size=hidden_size, n_layers=n_layers,
-                         discriminator_hidden_size=discriminator_hidden_size)
-        if src_embeddings_filename is not None:
-            self.load_embeddings(src_embeddings_filename, tgt_embeddings_filename, enable_training=False)
-            assert self.model.encoder.embedding.weight.size(0) == self.all_vocabulary.size()
-
-        self.model = self.model.cuda() if self.use_cuda else self.model
+    def init_optimizers(self, discriminator_lr=0.0005, main_lr=0.0003, main_betas=(0.5, 0.999)):
+        print("Initializing optimizers...")
         self.discriminator_optimizer = optim.RMSprop(self.model.discriminator.parameters(), lr=discriminator_lr)
         self.main_optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()),
                                          lr=main_lr, betas=main_betas)
 
-        if src_to_tgt_dict_filename is not None:
-            self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
-                                          tgt_to_src_dict_filename=tgt_to_src_dict_filename)
+    def print_summary(self):
         print(self.model)
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         print("Params: ", params)
 
+    def build_word_by_word_model(self, src_to_tgt_dict_filename, tgt_to_src_dict_filename):
+        self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
+                                                         self.all_vocabulary)
+
+    def init_model(self, src_filenames=None, tgt_filenames=None, src_to_tgt_dict_filename=None,
+                   tgt_to_src_dict_filename=None, src_embeddings_filename=None, tgt_embeddings_filename=None,
+                   src_max_words=80000, tgt_max_words=100000, hidden_size=200, n_layers=3, discriminator_lr=0.0005,
+                   main_lr=0.0003, main_betas=(0.5, 0.999), discriminator_hidden_size=512,
+                   src_vocabulary_path: str="src.pickle", tgt_vocabulary_path: str="tgt.pickle",
+                   all_vocabulary_path: str="all.pickle"):
+
+        self.collect_vocabularies(src_vocabulary_path=src_vocabulary_path,
+                                  tgt_vocabulary_path=tgt_vocabulary_path,
+                                  all_vocabulary_path=all_vocabulary_path,
+                                  src_filenames=src_filenames,
+                                  tgt_filenames=tgt_filenames,
+                                  src_max_words=src_max_words,
+                                  tgt_max_words=tgt_max_words)
+        self.init_criterions()
+        self.build_model(hidden_size=hidden_size,
+                         encoder_n_layers=n_layers,
+                         decoder_n_layers=n_layers,
+                         discriminator_hidden_size=discriminator_hidden_size,
+                         embeddings_freeze=False)
+
+        if src_embeddings_filename is not None:
+            self.load_embeddings(src_embeddings_filename, tgt_embeddings_filename, enable_training=False)
+
+        self.model = self.model.cuda() if self.use_cuda else self.model
+
+        self.init_optimizers(discriminator_lr=discriminator_lr,
+                             main_lr=main_lr,
+                             main_betas=main_betas)
+
+        if src_to_tgt_dict_filename is not None:
+            self.build_word_by_word_model(src_to_tgt_dict_filename=src_to_tgt_dict_filename,
+                                          tgt_to_src_dict_filename=tgt_to_src_dict_filename)
+
+        self.print_summary()
+
     def train(self, src_filenames, tgt_filenames, big_epochs: int, print_every=1000, save_every=1000,
-              batch_size: int = 32, n_batches=None, save_file: str="model"):
+              batch_size: int=32, n_batches=None, save_file: str="model"):
         src_batches = self.get_one_lang_batches(src_filenames, lang="src", batch_size=batch_size, n=n_batches)
         tgt_batches = self.get_one_lang_batches(tgt_filenames, lang="tgt", batch_size=batch_size, n=n_batches)
         count_batches = min(len(src_batches), len(tgt_batches))
@@ -140,7 +174,7 @@ class Trainer:
             # self.current_translation_model = self.model
 
     def train_supervised(self, pair_filenames, big_epochs: int, print_every=1000, save_every=1000,
-                         batch_size: int = 32, n_batches=None, save_file: str="model"):
+                         batch_size: int=32, n_batches=None, save_file: str="model"):
         batches = self.get_bilingual_batches(pair_filenames, lang="src", batch_size=batch_size, n=n_batches)
         reverted_pairs = [(pair[1], pair[0]) for pair in pair_filenames]
         reverted_batches = self.get_bilingual_batches(reverted_pairs, lang="tgt", batch_size=batch_size, n=n_batches)
@@ -258,45 +292,6 @@ class Trainer:
 
         return loss.data[0]
 
-    def translate(self, sentence, lang):
-        translator = self.model.translate_to_tgt if lang == "src" else self.model.translate_to_src
-        variable, lengths = self.sentence_to_variable(sentence, lang)
-        vocabulary = self.src_vocabulary if lang == "tgt" else self.tgt_vocabulary
-        translated = list(translator(variable, lengths)[:, 0])
-        lang = "tgt" if lang == "src" else "src"
-        words = []
-        for i in translated:
-            index = i.data[0]
-            word = vocabulary.get_word(index)
-            if word == "</s>" or word == "<pad>":
-                break
-            words.append(word)
-        return " ".join(words)
-
-    def autoencode(self, sentence, lang):
-        translator = self.model.translate_to_src if lang == "src" else self.model.translate_to_tgt
-        variable, lengths = self.sentence_to_variable(sentence, lang)
-        vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
-        translated = list(translator(variable, lengths)[:, 0])
-        words = []
-        for i in translated:
-            index = i.data[0]
-            word = vocabulary.get_word(index)
-            if word == "</s>" or word == "<pad>":
-                break
-            words.append(word)
-        return " ".join(words)
-
-    def sentence_to_variable(self, sentence, lang):
-        indices = indices_from_sentence(sentence, self.all_vocabulary, lang)
-        variable = Variable(torch.zeros(1, len(indices))).type(torch.LongTensor)
-        indices = Variable(torch.LongTensor(indices))
-        variable[0] = indices
-        variable = variable.transpose(0, 1)
-        variable = variable.cuda() if self.use_cuda else variable
-        lengths = [len(indices)]
-        return variable, lengths
-
     def discriminator_step(self, src_batch, tgt_batch):
         self.discriminator_optimizer.zero_grad()
         batch_size = len(src_batch.lengths)
@@ -326,11 +321,16 @@ class Trainer:
         return adv_criterion(log_prob, target_variable)
 
     @staticmethod
-    def save_model(module, discriminator_optimizer, main_optimizer, filename):
-        state_dict = module.state_dict()
+    def save_model(model: UNMT, discriminator_optimizer, main_optimizer, filename):
+        state_dict = model.state_dict()
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].cpu()
         torch.save({
+            'encoder_n_layers': model.encoder_n_layers,
+            'decoder_n_layers': model.decoder_n_layers,
+            'hidden_size': model.hidden_size,
+            'discriminator_hidden_size': model.discriminator_hidden_size,
+            'embeddings_freeze': model.encoder.embedding.weight.requires_grad,
             'state_dict': state_dict,
             'discriminator_optimizer': discriminator_optimizer.state_dict(),
             'main_optimizer': main_optimizer.state_dict(),
@@ -341,6 +341,13 @@ class Trainer:
 
     def load(self, model_filename):
         state_dict = torch.load(model_filename)
+        self.build_model(hidden_size=state_dict['hidden_size'],
+                         encoder_n_layers=state_dict['encoder_n_layers'],
+                         decoder_n_layers=state_dict['encoder_n_layers'],
+                         discriminator_hidden_size=state_dict['discriminator_hidden_size'],
+                         embeddings_freeze=state_dict['embeddings_freeze'])
+
+        self.init_optimizers()
         self.model.load_state_dict(state_dict['state_dict'])
         self.discriminator_optimizer.load_state_dict(state_dict['discriminator_optimizer'])
         self.main_optimizer.load_state_dict(state_dict['main_optimizer'])

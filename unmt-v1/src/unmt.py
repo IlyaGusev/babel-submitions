@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.models import EncoderRNN, Generator, AttnDecoderRNN
 from torch.autograd import Variable
+
+from src.models import EncoderRNN, Generator, AttnDecoderRNN
 
 
 class Discriminator(nn.Module):
@@ -37,7 +38,7 @@ class Discriminator(nn.Module):
 class UNMT(nn.Module):
     def __init__(self, embedding_dim, src_vocabulary, tgt_vocabulary, all_vocabulary, hidden_size,
                  discriminator_hidden_size=1024, encoder_n_layers=3, decoder_n_layers=3, dropout=0.1,
-                 max_length=50, use_cuda=True):
+                 max_length=50, use_cuda=True, embeddings_freeze=True):
         super(UNMT, self).__init__()
 
         self.embedding_dim = embedding_dim
@@ -55,6 +56,7 @@ class UNMT(nn.Module):
         self.decoder_n_layers = decoder_n_layers
         self.dropout = dropout
         self.max_length = max_length
+        self.discriminator_hidden_size = discriminator_hidden_size
 
         self.use_cuda = use_cuda
 
@@ -65,6 +67,9 @@ class UNMT(nn.Module):
         self.src_generator = Generator(hidden_size, self.src_size)
         self.tgt_generator = Generator(hidden_size, self.tgt_size)
         self.discriminator = Discriminator(self.max_length, self.hidden_size, hidden_size=discriminator_hidden_size)
+
+        self.encoder.embedding.weight.requires_grad = embeddings_freeze
+        self.decoder.embedding.weight.requires_grad = embeddings_freeze
 
     def load_embeddings(self, src_embeddings, tgt_embeddings, enable_training=False):
         aligned_embeddings = torch.div(torch.randn(self.all_vocabulary.size(), 300), 10)
@@ -81,9 +86,8 @@ class UNMT(nn.Module):
         self.encoder.embedding.weight = nn.Parameter(aligned_embeddings)
         self.decoder.embedding.weight = nn.Parameter(aligned_embeddings)
 
-        if not enable_training:
-            self.encoder.embedding.weight.requires_grad = False
-            self.decoder.embedding.weight.requires_grad = False
+        self.encoder.embedding.weight.requires_grad = enable_training
+        self.decoder.embedding.weight.requires_grad = enable_training
 
     def forward(self, src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_,
                 src_translated_noisy_batch, tgt_translated_noisy_batch, src_batch__, tgt_batch__,
@@ -154,7 +158,7 @@ class UNMT(nn.Module):
         encoder_output, hidden = encoder(variable, lengths, None)
         current_input, context = decoder.init_state(batch_size)
         for t in range(self.max_length):
-            output, hidden, _ = decoder(None, None, hidden, encoder_output, current_input, context, one_step=True)
+            output, hidden, attn = decoder(None, None, hidden, encoder_output, current_input, context, one_step=True)
             context = output
 
             scores = generator(output.squeeze(0))
