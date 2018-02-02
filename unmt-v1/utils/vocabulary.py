@@ -91,6 +91,11 @@ class Vocabulary:
             self.add_word(word)
             self.word2count[word] = count
 
+    def reset(self):
+        self.word2index = {}
+        self.word2count = Counter()
+        self.index2word = ["<pad>", "</b>", "</s>", "<unk>"]
+
     def save(self) -> None:
         with open(self.path, "wb") as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)

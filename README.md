@@ -27,3 +27,7 @@ Use this docker image `kwakinalabs/langdetect`
 | 2  | 0.02077 | `lang-detect`   | kwakinalabs/langdetect   |
 | 3  | 0.02662 | `supervised`    | kwakinalabs/supervised-gpu |
 | 4  | 0.00262 | `unmt-v1`       | kwakinalabs/unmt-v1      |
+
+## torch docker image
+`kwakinalabs/cuda-torch-cuda-v8`
+

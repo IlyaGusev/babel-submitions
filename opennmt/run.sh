@@ -1,3 +1,6 @@
 #!/bin/sh
 
-/model/translate.sh
+cd /model/OpenNMT
+
+/model/translate.sh 14
+

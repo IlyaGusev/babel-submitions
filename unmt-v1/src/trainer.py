@@ -36,22 +36,29 @@ class Trainer:
         self.main_optimizer = None
 
     def collect_vocabularies(self, src_vocabulary_path: str, tgt_vocabulary_path: str, all_vocabulary_path: str,
-                             src_filenames=tuple(), tgt_filenames=tuple(), src_max_words=80000, tgt_max_words=100000):
+                             src_filenames=None, tgt_filenames=None, src_max_words=80000, tgt_max_words=100000):
         print("Collecting vocabularies...")
         self.src_vocabulary = Vocabulary(language=self.src_lang, path=src_vocabulary_path)
         self.tgt_vocabulary = Vocabulary(language=self.tgt_lang, path=tgt_vocabulary_path)
         self.all_vocabulary = Vocabulary(language="all", path=all_vocabulary_path)
+        if src_filenames is not None:
+            self.src_vocabulary.reset()
+            self.tgt_vocabulary.reset()
+            self.all_vocabulary.reset()
 
         if self.src_vocabulary.is_empty():
             for filename in src_filenames:
                 self.src_vocabulary = self.add_filename_to_vocabulary(filename, self.src_vocabulary)
             self.src_vocabulary.shrink(src_max_words)
             self.src_vocabulary.save()
+        assert self.src_vocabulary.size() > 4
+
         if self.tgt_vocabulary.is_empty():
             for filename in tgt_filenames:
                 self.tgt_vocabulary = self.add_filename_to_vocabulary(filename, self.tgt_vocabulary)
             self.tgt_vocabulary.shrink(tgt_max_words)
             self.tgt_vocabulary.save()
+        assert self.tgt_vocabulary.size() > 4
 
         if self.all_vocabulary.is_empty():
             self.all_vocabulary = Vocabulary.merge(self.src_vocabulary, self.tgt_vocabulary, all_vocabulary_path)
