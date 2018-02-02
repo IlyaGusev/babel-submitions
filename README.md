@@ -26,3 +26,4 @@ Use this docker image `kwakinalabs/langdetect`
 | 1  | 0.03778 | `baseline`      | ashmat98/baseline        |
 | 2  | 0.02077 | `lang-detect`   | kwakinalabs/langdetect   |
 | 3  | 0.02662 | `supervised`    | kwakinalabs/supervised-gpu |
+| 4  | 0.00262 | `unmt-v1`       | kwakinalabs/unmt-v1      |
