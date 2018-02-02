@@ -198,17 +198,19 @@ class Trainer:
                     print_discriminator_loss_total = 0
                     diff = time.time() - timer
                     timer = time.time()
-                    print(Translator.translate(self.model, "you can prepare your meals here .", "src", "src",
-                                               self.all_vocabulary, self.use_cuda))
-                    print(Translator.translate(self.model, "по запросу могут приготовить другие блюда .", "tgt", "tgt",
-                                               self.all_vocabulary, self.use_cuda))
-                    print(Translator.translate(self.model, "you can prepare your meals here .", "src", "tgt",
-                                               self.all_vocabulary, self.use_cuda))
                     print('%s big epoch, %s/%s epoch, %s sec, %.4f main loss, %.4f discriminator loss' %
                           (big_epoch, epoch, count_unsupervised_batches, diff,
                            print_main_loss_avg, print_discriminator_loss_avg))
             self.save(save_file+".pt")
             # self.current_translation_model = self.model
+
+        for big_epoch in range(3):
+            for epoch, batch in enumerate(parallel_forward_batches):
+                self.model.train()
+                self.train_bilingual_batch(batch, reverted_batches[epoch])
+                if epoch % save_every == 0 and epoch != 0:
+                    self.save(save_file+"_supervised.pt")
+            self.save(save_file+"_supervised.pt")
 
     def get_one_lang_batches(self, filenames, lang, batch_size: int=32, n=None):
         batch_generator = OneLangBatchGenerator(filenames, batch_size, self.max_length, self.all_vocabulary, lang)

@@ -8,6 +8,7 @@ from utils.vocabulary import Vocabulary
 class Translator:
     @staticmethod
     def translate(model, sentence, src_lang, tgt_lang, vocabulary, use_cuda):
+        model.eval()
         translator = model.translate_to_tgt if tgt_lang == "tgt" else model.translate_to_src
         variable, lengths = Translator.sentence_to_variable(sentence, src_lang, vocabulary, use_cuda)
         translated = list(translator(variable, lengths)[:, 0])
