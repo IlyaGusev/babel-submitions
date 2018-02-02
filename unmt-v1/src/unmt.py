@@ -36,19 +36,14 @@ class Discriminator(nn.Module):
 
 
 class UNMT(nn.Module):
-    def __init__(self, embedding_dim, src_vocabulary, tgt_vocabulary, all_vocabulary, hidden_size,
+    def __init__(self, embedding_dim, all_vocabulary, hidden_size,
                  discriminator_hidden_size=1024, encoder_n_layers=3, decoder_n_layers=3, dropout=0.1,
                  max_length=50, use_cuda=True, embeddings_freeze=True):
         super(UNMT, self).__init__()
 
         self.embedding_dim = embedding_dim
 
-        self.src_vocabulary = src_vocabulary
-        self.tgt_vocabulary = tgt_vocabulary
         self.all_vocabulary = all_vocabulary
-
-        self.src_size = src_vocabulary.size()
-        self.tgt_size = tgt_vocabulary.size()
         self.all_size = all_vocabulary.size()
 
         self.hidden_size = hidden_size
@@ -64,8 +59,7 @@ class UNMT(nn.Module):
                                   n_layers=encoder_n_layers)
         self.decoder = AttnDecoderRNN(embedding_dim, hidden_size, self.all_size, dropout=dropout,
                                       max_length=max_length, n_layers=decoder_n_layers, use_cuda=use_cuda)
-        self.src_generator = Generator(hidden_size, self.src_size)
-        self.tgt_generator = Generator(hidden_size, self.tgt_size)
+        self.generator = Generator(hidden_size, self.all_size)
         self.discriminator = Discriminator(self.max_length, self.hidden_size, hidden_size=discriminator_hidden_size)
 
         self.encoder.embedding.weight.requires_grad = embeddings_freeze
@@ -91,41 +85,41 @@ class UNMT(nn.Module):
 
     def forward(self, src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_batch_, tgt_batch_,
                 src_translated_noisy_batch, tgt_translated_noisy_batch, src_batch__, tgt_batch__,
-                batch_size, src_criterion, tgt_criterion):
+                batch_size, criterion):
         adv_ones_variable = Variable(torch.add(torch.ones((batch_size,)), -0.1), requires_grad=False)
         adv_ones_variable = adv_ones_variable.cuda() if self.use_cuda else adv_ones_variable
         adv_zeros_variable = Variable(torch.add(torch.zeros((batch_size,)), 0.1), requires_grad=False)
         adv_zeros_variable = adv_zeros_variable.cuda() if self.use_cuda else adv_zeros_variable
 
         src_adv_loss, src_auto_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, src_criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, criterion,
                                      src_noisy_batch.variable, src_noisy_batch.lengths,
-                                     src_batch_.variable, src_batch_.lengths, batch_size, adv_ones_variable)
+                                     src_batch_.variable, src_batch_.lengths, batch_size, adv_ones_variable,
+                                     self.all_vocabulary.get_lang_sos("src"))
 
-        tgt_batch_.variable = torch.add(tgt_batch_.variable, -self.src_vocabulary.size() + 1)
-        tgt_batch_.variable[tgt_batch_.variable < 0] = 0
         tgt_adv_loss, tgt_auto_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, tgt_criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, criterion,
                                      tgt_noisy_batch.variable, tgt_noisy_batch.lengths,
-                                     tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable)
+                                     tgt_batch_.variable, tgt_batch_.lengths, batch_size, adv_zeros_variable,
+                                     self.all_vocabulary.get_lang_sos("tgt"))
 
         cd_src_adv_loss, cd_src_cd_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, src_criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.src_generator, criterion,
                                      src_translated_noisy_batch.variable, src_translated_noisy_batch.lengths,
-                                     src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable)
+                                     src_batch__.variable, src_batch__.lengths, batch_size, adv_zeros_variable,
+                                     self.all_vocabulary.get_lang_sos("src"))
 
-        tgt_batch__.variable = torch.add(tgt_batch__.variable, -self.src_vocabulary.size() + 1)
-        tgt_batch__.variable[tgt_batch__.variable < 0] = 0
         cd_tgt_adv_loss, cd_tgt_cd_loss = \
-            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, tgt_criterion,
+            self.encoder_decoder_run(self.encoder, self.decoder, self.tgt_generator, criterion,
                                      tgt_translated_noisy_batch.variable, tgt_translated_noisy_batch.lengths,
-                                     tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable)
+                                     tgt_batch__.variable, tgt_batch__.lengths, batch_size, adv_ones_variable,
+                                     self.all_vocabulary.get_lang_sos("tgt"))
 
         return sum([src_adv_loss, src_auto_loss, tgt_adv_loss, tgt_auto_loss,
                     cd_tgt_adv_loss, cd_tgt_cd_loss, cd_src_adv_loss, cd_src_cd_loss])
 
     def encoder_decoder_run(self, encoder, decoder, generator, criterion, variable, lengths,
-                            gt_variable, gt_lengths, batch_size, adv_variable):
+                            gt_variable, gt_lengths, batch_size, adv_variable, sos_index):
         encoder_output, encoder_hidden = encoder(variable, lengths, None)
 
         adv_loss = 0
@@ -133,7 +127,7 @@ class UNMT(nn.Module):
             adv_loss = self.get_discriminator_loss(encoder_output, adv_variable)
 
         main_loss = 0
-        initial_input, initial_context = decoder.init_state(batch_size)
+        initial_input, initial_context = decoder.init_state(batch_size, sos_index)
         decoder_output, _, _ = decoder(gt_variable, gt_lengths, encoder_hidden, encoder_output,
                                        initial_input, initial_context)
         max_length = max(gt_lengths)
@@ -149,14 +143,14 @@ class UNMT(nn.Module):
         adv_loss = adv_criterion(log_prob, target_variable)
         return adv_loss
 
-    def translate(self, variable, encoder, decoder, generator, lengths):
+    def translate(self, variable, encoder, decoder, generator, lengths, sos_index):
         self.eval()
         batch_size = variable.size(1)
         output_variable = Variable(torch.zeros(self.max_length, batch_size)).type(torch.LongTensor)
         output_variable = output_variable.cuda() if self.use_cuda else output_variable
 
         encoder_output, hidden = encoder(variable, lengths, None)
-        current_input, context = decoder.init_state(batch_size)
+        current_input, context = decoder.init_state(batch_size, sos_index)
         for t in range(self.max_length):
             output, hidden, attn = decoder(None, None, hidden, encoder_output, current_input, context, one_step=True)
             context = output
@@ -169,7 +163,9 @@ class UNMT(nn.Module):
         return output_variable
 
     def translate_to_tgt(self, variable, lengths):
-        return self.translate(variable, self.encoder, self.decoder, self.tgt_generator, lengths)
+        return self.translate(variable, self.encoder, self.decoder, self.generator, lengths,
+                              self.all_vocabulary.get_lang_sos("tgt"))
 
     def translate_to_src(self, variable, lengths):
-        return self.translate(variable, self.encoder, self.decoder, self.src_generator, lengths)
+        return self.translate(variable, self.encoder, self.decoder, self.generator, lengths,
+                              self.all_vocabulary.get_lang_sos("src"))

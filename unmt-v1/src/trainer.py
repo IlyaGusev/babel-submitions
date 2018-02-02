@@ -31,8 +31,7 @@ class Trainer:
         self.tgt_vocabulary = None  # type: Vocabulary
         self.all_vocabulary = None  # type: Vocabulary
 
-        self.src_criterion = None
-        self.tgt_criterion = None
+        self.criterion = None
         self.discriminator_optimizer = None
         self.main_optimizer = None
 
@@ -67,20 +66,15 @@ class Trainer:
         assert self.all_vocabulary.size() == self.src_vocabulary.size() + self.tgt_vocabulary.size() - 1
 
     def init_criterions(self):
-        weight = torch.ones(self.src_vocabulary.size())
-        weight[self.src_vocabulary.get_pad()] = 0
+        weight = torch.ones(self.all_vocabulary.size())
+        weight[self.all_vocabulary.get_pad()] = 0
         weight = weight.cuda() if self.use_cuda else weight
-        self.src_criterion = nn.NLLLoss(weight, size_average=False)
-
-        weight = torch.ones(self.tgt_vocabulary.size())
-        weight[self.tgt_vocabulary.get_pad()] = 0
-        weight = weight.cuda() if self.use_cuda else weight
-        self.tgt_criterion = nn.NLLLoss(weight, size_average=False)
+        self.criterion = nn.NLLLoss(weight, size_average=False)
 
     def build_model(self, hidden_size, encoder_n_layers, decoder_n_layers,
                     discriminator_hidden_size, embeddings_freeze=True):
         print("Building model...")
-        self.model = UNMT(300, self.src_vocabulary, self.tgt_vocabulary, self.all_vocabulary, hidden_size,
+        self.model = UNMT(300, self.all_vocabulary, hidden_size,
                           discriminator_hidden_size=discriminator_hidden_size, use_cuda=self.use_cuda,
                           encoder_n_layers=encoder_n_layers, decoder_n_layers=decoder_n_layers,
                           embeddings_freeze=embeddings_freeze)
@@ -271,7 +265,7 @@ class Trainer:
         self.main_optimizer.zero_grad()
         loss = self.model(src_batch, tgt_batch, src_noisy_batch, tgt_noisy_batch, src_batch_,
                           tgt_batch_, src_translated_noisy_batch, tgt_translated_noisy_batch,
-                          src_batch__, tgt_batch__, batch_size, self.src_criterion, self.tgt_criterion)
+                          src_batch__, tgt_batch__, batch_size, self.criterion)
         loss.backward()
         nn.utils.clip_grad_norm(self.model.parameters(), 5)
         self.main_optimizer.step()
@@ -282,16 +276,15 @@ class Trainer:
         self.main_optimizer.zero_grad()
         batch = batch.cuda()
         reverted_batch = reverted_batch.cuda()
-        batch.tgt_variable = torch.add(batch.tgt_variable, -self.src_vocabulary.size() + 1)
-        batch.tgt_variable[batch.tgt_variable < 0] = 0
-        _, loss_src = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.tgt_generator,
-                                                     self.tgt_criterion, batch.src_variable, batch.src_lengths,
+        _, loss_src = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.generator,
+                                                     self.criterion, batch.src_variable, batch.src_lengths,
                                                      batch.tgt_variable, batch.tgt_lengths, len(batch.src_lengths),
-                                                     None)
-        _, loss_tgt = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.src_generator,
-                                                     self.src_criterion, reverted_batch.src_variable,
+                                                     None, self.all_vocabulary.get_lang_sos("tgt"))
+        _, loss_tgt = self.model.encoder_decoder_run(self.model.encoder, self.model.decoder, self.model.generator,
+                                                     self.criterion, reverted_batch.src_variable,
                                                      reverted_batch.src_lengths, reverted_batch.tgt_variable,
-                                                     reverted_batch.tgt_lengths, len(reverted_batch.src_lengths), None)
+                                                     reverted_batch.tgt_lengths, len(reverted_batch.src_lengths),
+                                                     None, self.all_vocabulary.get_lang_sos("src"))
         loss = loss_src + loss_tgt
         loss.backward()
         nn.utils.clip_grad_norm(self.model.parameters(), 5)
