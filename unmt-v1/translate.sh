@@ -16,6 +16,7 @@ epochs=$1           # 5
 layers=$2           # 3
 rnn_size=$3         # 400
 fasttext_epochs=$4  # 20
+unsupervised_batches=$5 # 4000
 
 # Randomize supervised input
 shuf /data/parallel_corpus.txt > /model/parallel_corpus_shuffled.txt
@@ -80,7 +81,7 @@ python3 /model/train.py \
     -discriminator_hidden_size 1024 \
     -supervised_epochs $epochs \
     -unsupervised_epochs 1 \
-    -n_unsupervised_batches 3000 \
+    -n_unsupervised_batches $unsupervised_batches \
     -src_vocabulary /model/src.pickle \
     -tgt_vocabulary /model/tgt.pickle \
     -all_vocabulary /model/all.pickle

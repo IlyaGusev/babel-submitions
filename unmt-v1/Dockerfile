@@ -52,4 +52,4 @@ COPY ./ /model/
 WORKDIR /model/
 RUN pip3 install -r requirements.txt
 
-CMD ["/model/translate.sh", "5", "3", "400", "20"]
+CMD ["/model/translate.sh", "5", "3", "400", "20", "4000"]
