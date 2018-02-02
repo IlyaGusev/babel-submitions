@@ -2,13 +2,19 @@
 
 set -x
 
+lines=`wc -l < /data/input.txt`
+if [ $lines -lt 101 ]; then
+  cat /data/input.txt > /output/output.txt
+  exit 0
+fi
+
 mosesdecoder=/model/mosesdecoder
 muse=/model/MUSE
 src=src
 tgt=tgt
-epochs=$1   # 1
-layers=$2   # 1
-rnn_size=$3 # 150
+epochs=$1      # 1
+layers=$2      # 1
+rnn_size=$3    # 150
 muse_epochs=$4 # 5
 
 # Randomize supervised input
