@@ -96,8 +96,6 @@ class Trainer:
         model_parameters = filter(lambda p: p.requires_grad, self.model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         print("Params: ", params)
-        print(self.discriminator_optimizer)
-        print(self.main_optimizer)
 
     def build_word_by_word_model(self, src_to_tgt_dict_filename, tgt_to_src_dict_filename):
         self.current_translation_model = WordByWordModel(src_to_tgt_dict_filename, tgt_to_src_dict_filename,
@@ -293,45 +291,6 @@ class Trainer:
         self.main_optimizer.step()
 
         return loss.data[0]
-
-    def translate(self, sentence, lang):
-        translator = self.model.translate_to_tgt if lang == "src" else self.model.translate_to_src
-        variable, lengths = self.sentence_to_variable(sentence, lang)
-        vocabulary = self.src_vocabulary if lang == "tgt" else self.tgt_vocabulary
-        translated = list(translator(variable, lengths)[:, 0])
-        lang = "tgt" if lang == "src" else "src"
-        words = []
-        for i in translated:
-            index = i.data[0]
-            word = vocabulary.get_word(index)
-            if word == "</s>" or word == "<pad>":
-                break
-            words.append(word)
-        return " ".join(words)
-
-    def autoencode(self, sentence, lang):
-        translator = self.model.translate_to_src if lang == "src" else self.model.translate_to_tgt
-        variable, lengths = self.sentence_to_variable(sentence, lang)
-        vocabulary = self.src_vocabulary if lang == "src" else self.tgt_vocabulary
-        translated = list(translator(variable, lengths)[:, 0])
-        words = []
-        for i in translated:
-            index = i.data[0]
-            word = vocabulary.get_word(index)
-            if word == "</s>" or word == "<pad>":
-                break
-            words.append(word)
-        return " ".join(words)
-
-    def sentence_to_variable(self, sentence, lang):
-        indices = indices_from_sentence(sentence, self.all_vocabulary, lang)
-        variable = Variable(torch.zeros(1, len(indices))).type(torch.LongTensor)
-        indices = Variable(torch.LongTensor(indices))
-        variable[0] = indices
-        variable = variable.transpose(0, 1)
-        variable = variable.cuda() if self.use_cuda else variable
-        lengths = [len(indices)]
-        return variable, lengths
 
     def discriminator_step(self, src_batch, tgt_batch):
         self.discriminator_optimizer.zero_grad()
