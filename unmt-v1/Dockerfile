@@ -42,34 +42,6 @@ WORKDIR /model/
 # Moses
 RUN git clone https://github.com/moses-smt/mosesdecoder.git --depth 1
 
-# MUSE
-WORKDIR /model/
-RUN git clone https://github.com/aoboturov/MUSE.git --depth 1
-
-# FAISS
-WORKDIR /model/
-COPY makefile.inc.Linux /model/makefile.inc
-ENV BLASLDFLAGS /usr/lib/libopenblas.so.0
-
-RUN git clone https://github.com/facebookresearch/faiss.git --depth 1 && \
-  cd faiss && \
-  mv /model/makefile.inc /model/faiss/makefile.inc && \
-  make -j 16 && \
-  make py -j 16 && \
-  cp libfaiss.a /usr/lib/ && \
-  cd gpu && \
-  make -j 16 && \
-  make py -j 16 && \
-  cp libgpufaiss.a /usr/lib/ && \
-  cd .. && \
-  cp faiss.py /model && \
-  cp swigfaiss.py /model && \
-  cp swigfaiss_gpu.py /model && \
-  cp _swigfaiss.so /model && \
-  cp _swigfaiss_gpu.so /model
-
-ENV PYTHONPATH /model
-
 # playground will contain user defined scripts, it should be run as:
 # docker run -v `pwd`:/data -it basel-baseline
 RUN mkdir /data
