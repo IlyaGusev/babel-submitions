@@ -1,3 +1,3 @@
 #! /usr/bin/env bash
 
-/model/translate.sh corpus2.txt es
+/model/translate.sh corpus2.txt nl
