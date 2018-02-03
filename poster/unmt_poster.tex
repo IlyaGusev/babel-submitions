@@ -1,0 +1,178 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% baposter Portrait Poster
+% LaTeX Template
+% Version 1.0 (15/5/13)
+%
+% Created by:
+% Brian Amberg (baposter@brian-amberg.de)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[archE1,portrait]{baposter}
+
+%841mm x 1189mm
+\usepackage[font=small,labelfont=bf]{caption} % Required for specifying captions to tables and figures
+\usepackage{booktabs} % Horizontal rules in tables
+\usepackage{relsize} % Used for making text smaller in some places
+\usepackage[urlcolor  = blue]{hyperref}
+\graphicspath{{figures/}} % Directory in which figures are stored
+
+\definecolor{bordercol}{RGB}{5,2,82} % Border color of content boxes
+\definecolor{headercol1}{RGB}{5,2,82} % Background color for the header in the content boxes (left side)
+\definecolor{headercol2}{RGB}{5,2,82} % Background color for the header in the content boxes (right side)
+\definecolor{headerfontcol}{RGB}{255,255,255} % Text color for the header text in the content boxes
+\definecolor{boxcolor}{RGB}{255,255,255} % Background color for the content in the content boxes
+
+\begin{document}
+
+\background{ % Set the background to an image (background.pdf)
+
+}
+
+\begin{poster}{
+grid=false,
+borderColor=bordercol, % Border color of content boxes
+headerColorOne=headercol1, % Background color for the header in the content boxes (left side)
+headerColorTwo=headercol1, % Background color for the header in the content boxes (right side)
+headerFontColor=headerfontcol, % Text color for the header text in the content boxes
+boxColorOne=boxcolor, % Background color for the content in the content boxes
+headershape=roundedright, % Specify the rounded corner in the content box headers
+headerfont=\Large\sf\bf, % Font modifiers for the text in the content box headers
+textborder=rectangle,
+background=user,
+headerborder=open, % Change to closed for a line under the content box headers
+boxshade=plain,
+columns=6
+}
+{}
+%
+%----------------------------------------------------------------------------------------
+%	TITLE AND AUTHOR NAME
+%----------------------------------------------------------------------------------------
+%
+%\vspace{2em}
+{
+%\newline
+\sf\bf (Un)supervised machine translation} % Poster title
+{\vspace{1em} \textbf{NL Processing}\\
+Ilya Gusev, Artem Oboturov, Boris Pyakilya, Bulat Suleymanov, Ashot Matevosyan
+\\ % Author names
+{\smaller ilya.gusev@phystech.edu, oboturov@gmail.com}\\
+%\vspace{1em}
+%\vspace{1em}
+} % Author email addresses
+%
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+
+\headerbox{Introduction}{name=introduction,column=0,row=0,span=3}{
+\underline{\textbf{Data}}
+\begin{itemize}
+\item  2 monolingual corpora - around \textbf{1 million sentences} each
+\item  Parallel corpus - \textbf{50000 sentences}
+\item  Domain: \textbf{hotels} (probably Booking.com)
+\item  Train language pair: \textbf{en-ru}
+\item  Final test language pair is unknown, our guess: \textbf{en-nl}
+\end{itemize}
+
+
+\underline{\textbf{Testing system}}
+\begin{itemize}
+\item  Time limit - \textbf{8 hours}
+\item  Disk space limit - \textbf{20 Gb}
+\item  Error output is disabled in order to hide true test language pair
+\end{itemize}
+}
+
+\headerbox{Language detection}{name=introduction,column=3,span=3}{
+\begin{center}
+\includegraphics[scale=0.23]{lang_detect}
+\end{center}
+\begin{itemize}
+\item Python lib for language detection: lang\_detect
+\item Language is not in the proposed list -> submition status is \textbf{SUCCESS}
+\item Language is in the proposed list -> submition status is \textbf{ERROR}
+\item Log(N) submitions for finding src or tgt language
+\end{itemize}
+}
+
+%\headerbox{True vs False Motifs}{name=introduction2,column=1,row=0, span=2}{
+%\includegraphics[scale=0.42]{motif_study}
+%}
+
+%----------------------------------------------------------------------------------------
+%	MATERIALS AND METHODS
+%----------------------------------------------------------------------------------------
+
+\headerbox{UNMT}{name=methods1,column=0,below=introduction, span=3}{
+
+\begin{center}
+\includegraphics[scale=0.2]{model}
+\end{center}
+
+\begin{itemize}
+\item Embeddings: MUSE-300
+\item Encoder: bidirectional LSTM, 3 layers, 400 hidden size
+\item Decoder: LSTM with attention (Luong, general), 3 layers, 400 hidden size
+\item Discriminator: 3 fully connected layers, 1024 hidden size
+\end{itemize}
+}
+
+
+\headerbox{Supervised NMT}{name=methods2,column=3,below=introduction, span=3}{
+\begin{itemize}
+\item Embeddings: fasttext-300
+\item OpenNMT default RNN models
+\item Encoder + Decoder from UNMT
+\end{itemize}
+}
+
+\headerbox{Combined}{name=methods3,column=3,below=methods2, span=3}{
+\begin{itemize}
+\item N supervised epochs + N unsupervised batches
+\item Joint training of unsupervised and supervised models
+\end{itemize}
+}
+
+%----------------------------------------------------------------------------------------
+%	RESULTS
+%----------------------------------------------------------------------------------------
+\headerbox{Results}{name=results2,span=3,column=0,below=methods1}{
+%------------------------------------------------
+
+\begin{itemize}
+\item cat input.txt > output.txt is a very good baseline with BLEU around 2-3
+\item Word by word models aren't good for en-ru language pair
+\item Pure UNMT - can't converge in 8 hours
+\item Supervised models - 50000 sentences is enough for 20-25 BLEU, mainly because of the strict domain of data
+\item Always fix versions of the requirements. Gensim interface has changed in the last day of the competition
+\end{itemize}
+
+}
+\headerbox{References}{name=references,column=3, below=methods3, span=3}{
+
+\smaller % Reduce the font size in this block
+\renewcommand{\section}[2]{\vskip 0.05em} % Get rid of the default "References" section title
+\nocite{*} % Insert publications even if they are not cited in the poster
+
+\bibliographystyle{unsrt}
+\bibliography{abstract} % Use sample.bib as the bibliography file
+\vspace{1em}
+
+}
+%----------------------------------------------------------------------------------------
+
+\end{poster}
+\end{document}
